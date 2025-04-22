@@ -343,10 +343,10 @@ class _BusinessFinancialScreenState extends State<BusinessFinancialScreen> {
                   final userDocRef = FirebaseFirestore.instance.collection('loan_users').doc(widget.userId);
 
                   // Clear existing responses and save updated ones
-                  var existingResponsesSnapshot = await userDocRef.collection('survey_responses').get();
-                  for (var doc in existingResponsesSnapshot.docs) {
-                    await doc.reference.delete();
-                  }
+                  // var existingResponsesSnapshot = await userDocRef.collection('survey_responses').get();
+                  // for (var doc in existingResponsesSnapshot.docs) {
+                  //   await doc.reference.delete();
+                  // }
 
                   for (var response in responses) {
                     await userDocRef.collection('survey_responses').add({
