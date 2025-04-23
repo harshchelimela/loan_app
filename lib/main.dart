@@ -9,9 +9,16 @@ import 'firebase_options.dart';
 void main() async {
   await GetStorage.init();
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    // If Firebase is already initialized, this will throw an error
+    // We can safely ignore it as the app is already initialized
+    print('Firebase already initialized: $e');
+  }
 
   //initialize and start sync service
   final SyncService syncService = Get.put(SyncService());

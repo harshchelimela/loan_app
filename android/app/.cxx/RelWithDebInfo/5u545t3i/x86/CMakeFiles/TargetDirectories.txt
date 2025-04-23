@@ -1,0 +1,2 @@
+/home/swaraj31/Documents/Finoux/loan_app/android/app/.cxx/RelWithDebInfo/5u545t3i/x86/CMakeFiles/edit_cache.dir
+/home/swaraj31/Documents/Finoux/loan_app/android/app/.cxx/RelWithDebInfo/5u545t3i/x86/CMakeFiles/rebuild_cache.dir

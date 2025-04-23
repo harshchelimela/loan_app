@@ -52,19 +52,19 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCuLRWX1itzmJVPWBdrlYDOTeMbQs47yDY',
-    appId: '1:998452037223:android:ddef42bf41f162f41036c2',
+    appId: '1:998452037223:android:23aecaff925b40cb1036c2',
     messagingSenderId: '998452037223',
     projectId: 'survey-app-a2537',
-    storageBucket: 'survey-app-a2537.appspot.com',
+    storageBucket: 'survey-app-a2537.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCu5FOguMyCq7aJRR7lSlTyZXoo6yqQ1uk',
-    appId: '1:998452037223:ios:e5bc8c2e715abd461036c2',
+    appId: '1:998452037223:ios:aeceaf0faed2b7f91036c2',
     messagingSenderId: '998452037223',
     projectId: 'survey-app-a2537',
-    storageBucket: 'survey-app-a2537.appspot.com',
-    iosBundleId: 'com.example.survey',
+    storageBucket: 'survey-app-a2537.firebasestorage.app',
+    iosBundleId: 'com.example.loanApp',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
