@@ -24,6 +24,9 @@ class _BusinessNonfinancialSettwoState
   List<TextEditingController> answerControllers = [];
   bool _isSaved = false; // Flag to track if data has been saved
   bool _isLoading = true; // Track the loading state for the form
+  List<FocusNode> focusNodes = [];
+  String currentLanguage = 'en'; // Default language
+  Map<String, String> dropdownValues = {};
 
   @override
   void initState() {
@@ -35,6 +38,15 @@ class _BusinessNonfinancialSettwoState
       await _loadSavedResponses();
       setState(() {
         _isLoading = false;
+      });
+    });
+
+    surveyController.questions.listen((questions) {
+      setState(() {
+        focusNodes = List.generate(
+          questions.length,
+          (index) => FocusNode(),
+        );
       });
     });
   }
@@ -80,7 +92,7 @@ class _BusinessNonfinancialSettwoState
     if (_isLoading) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Business NonFinancial Details'),
+          title: Text(currentLanguage == 'en' ? 'Business NonFinancial Details' : 'व्यवसाय गैर-वित्तीय विवरण'),
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -88,9 +100,9 @@ class _BusinessNonfinancialSettwoState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Business NonFinancial Details',
-          style: TextStyle(fontSize: 15),
+        title: Text(
+          currentLanguage == 'en' ? 'Business NonFinancial Details' : 'व्यवसाय गैर-वित्तीय विवरण',
+          style: const TextStyle(fontSize: 15),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -99,6 +111,22 @@ class _BusinessNonfinancialSettwoState
             Get.to(() => BusinessNonfinancialSetone(userId: widget.userId));
           },
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  currentLanguage = currentLanguage == 'en' ? 'hi' : 'en';
+                });
+              },
+              child: Text(
+                currentLanguage == 'en' ? 'हिंदी' : 'English',
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Obx(() {
         if (surveyController.isLoading.value) {
@@ -106,7 +134,7 @@ class _BusinessNonfinancialSettwoState
         }
 
         if (surveyController.questions.isEmpty) {
-          return const Center(child: Text('No survey questions available.'));
+          return Center(child: Text(currentLanguage == 'en' ? 'No survey questions available.' : 'कोई सर्वेक्षण प्रश्न उपलब्ध नहीं है।'));
         }
 
         return Form(
@@ -125,6 +153,9 @@ class _BusinessNonfinancialSettwoState
                 case 'boolean':
                   keyboardType = TextInputType.text;
                   break;
+                case 'dropdown':
+                  keyboardType = TextInputType.text;
+                  break;
                 default:
                   keyboardType = TextInputType.text;
               }
@@ -139,28 +170,69 @@ class _BusinessNonfinancialSettwoState
                     children: [
                       const SizedBox(height: 10),
                       Text(
-                        question['text'],
+                        question['text'][currentLanguage] ?? question['text'],
                         style: const TextStyle(
                           fontSize: 21,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 20),
-                      TextFormField(
-                        controller: answerControllers[index],
-                        keyboardType: keyboardType,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          labelText: 'Your answer',
-                          prefixIcon: Icon(Icons.question_answer),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter an answer';
-                          }
-                          return null;
-                        },
-                      ),
+                      question['keyboardType'] == "dropdown"
+                          ? DropdownButtonFormField<String>(
+                              value: dropdownValues[question['id']],
+                              decoration: InputDecoration(
+                                border: const OutlineInputBorder(),
+                                labelText: currentLanguage == 'en' ? 'Your answer' : 'आपका उत्तर',
+                                prefixIcon: const Icon(Icons.question_answer),
+                              ),
+                              hint: Text(currentLanguage == 'en' ? 'Select an option' : 'एक विकल्प चुनें'),
+                              items: (question['options'][currentLanguage] as List<dynamic>)
+                                  .map((dynamic value) => value.toString())
+                                  .toList()
+                                  .map((String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Text(value),
+                                );
+                              }).toList(),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return currentLanguage == 'en' ? 'Please select an option' : 'कृपया एक विकल्प चुनें';
+                                }
+                                return null;
+                              },
+                              onChanged: (String? newValue) {
+                                setState(() {
+                                  dropdownValues[question['id']] = newValue;
+                                });
+                              },
+                            )
+                          : TextFormField(
+                              controller: answerControllers[index],
+                              keyboardType: keyboardType,
+                              textInputAction: index == surveyController.questions.length - 1
+                                  ? TextInputAction.done
+                                  : TextInputAction.next,
+                              focusNode: focusNodes[index],
+                              onFieldSubmitted: (_) {
+                                if (index < surveyController.questions.length - 1) {
+                                  FocusScope.of(context).requestFocus(focusNodes[index + 1]);
+                                } else {
+                                  FocusScope.of(context).unfocus();
+                                }
+                              },
+                              decoration: InputDecoration(
+                                border: const OutlineInputBorder(),
+                                labelText: currentLanguage == 'en' ? 'Your answer' : 'आपका उत्तर',
+                                prefixIcon: const Icon(Icons.question_answer),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return currentLanguage == 'en' ? 'Please enter an answer' : 'कृपया उत्तर दर्ज करें';
+                                }
+                                return null;
+                              },
+                            ),
                       const SizedBox(height: 20),
                     ],
                   ),
@@ -176,7 +248,10 @@ class _BusinessNonfinancialSettwoState
           onPressed: () async {
             if (_formKey.currentState?.validate() ?? false) {
               if (_isSaved) {
-                Get.snackbar('Info', 'Data has already been saved.');
+                Get.snackbar(
+                  currentLanguage == 'en' ? 'Info' : 'जानकारी',
+                  currentLanguage == 'en' ? 'Data has already been saved.' : 'डेटा पहले से ही सहेजा जा चुका है।'
+                );
                 return;
               }
 
@@ -189,7 +264,7 @@ class _BusinessNonfinancialSettwoState
 
                 if (answer.isNotEmpty) {
                   responses.add({
-                    'question': question['text'],
+                    'question': question['text'][currentLanguage] ?? question['text'],
                     'answer': answer,
                   });
                 }
@@ -214,26 +289,44 @@ class _BusinessNonfinancialSettwoState
                   });
 
                   Get.snackbar(
-                      'Success', 'Survey responses saved successfully');
+                    currentLanguage == 'en' ? 'Success' : 'सफल',
+                    currentLanguage == 'en'
+                        ? 'Survey responses saved successfully'
+                        : 'सर्वेक्षण प्रतिक्रियाएं सफलतापूर्वक सहेजी गईं'
+                  );
                 } catch (e) {
-                  Get.snackbar('Error', 'Failed to save responses. Try again.');
+                  Get.snackbar(
+                    currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                    currentLanguage == 'en'
+                        ? 'Failed to save responses. Try again.'
+                        : 'प्रतिक्रियाएं सहेजने में विफल। पुनः प्रयास करें।'
+                  );
                 }
               } else {
                 UserCacheService().saveSurveyResponse(widget.userId, responses);
                 setState(() {
                   _isSaved = true;
                 });
-                Get.snackbar('Saved Locally',
-                    'No internet connection. Responses saved locally and will sync later.');
+                Get.snackbar(
+                  currentLanguage == 'en' ? 'Saved Locally' : 'स्थानीय रूप से सहेजा गया',
+                  currentLanguage == 'en'
+                      ? 'No internet connection. Responses saved locally and will sync later.'
+                      : 'कोई इंटरनेट कनेक्शन नहीं। प्रतिक्रियाएं स्थानीय रूप से सहेजी गईं और बाद में सिंक होंगी।'
+                );
               }
 
               // Navigate to the next screen
               Get.to(() => HouseholdScreen(userId: widget.userId));
             } else {
-              Get.snackbar('Error', 'Please answer all questions.');
+              Get.snackbar(
+                currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                currentLanguage == 'en'
+                    ? 'Please answer all questions.'
+                    : 'कृपया सभी प्रश्नों का उत्तर दें।'
+              );
             }
           },
-          child: const Text('Next'),
+          child: Text(currentLanguage == 'en' ? 'Next' : 'अगला'),
         ),
       ),
     );

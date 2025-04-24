@@ -12,8 +12,9 @@ import 'package:loan/screens/business_nonFinancial/business_nonfinancial_setone.
 
 class BusinessFinancialPersonalcost extends StatefulWidget {
   final String userId;
+  final String initialLanguage;
 
-  BusinessFinancialPersonalcost({super.key, required this.userId});
+  BusinessFinancialPersonalcost({super.key, required this.userId, this.initialLanguage = 'en'});
 
   @override
   _BusinessFinancialPersonalcostState createState() => _BusinessFinancialPersonalcostState();
@@ -26,13 +27,17 @@ class _BusinessFinancialPersonalcostState extends State<BusinessFinancialPersona
   bool _isLoading = true; // Flag to track if data is being loaded
   List<FocusNode> focusNodes = [];
   AccessResponses accessResponses = AccessResponses();
+  String currentLanguage = 'en'; // Default language
 
   @override
   void initState() {
     super.initState();
+    currentLanguage = widget.initialLanguage; // Set initial language from parameter
+
     final SurveyController surveyController = Get.put(SurveyController());
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await surveyController.checkStatusAndFetchQuestions('business_financial_personal_key');
+      await surveyController
+          .checkStatusAndFetchQuestions('business_financial_personal_key');
       await _loadSavedResponses(); // Load saved data when the screen is loaded
       setState(() {
         _isLoading = false; // Set loading to false after data is loaded
@@ -91,7 +96,7 @@ class _BusinessFinancialPersonalcostState extends State<BusinessFinancialPersona
     if (_isLoading) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Personal Cost Questions'),
+          title: Text(currentLanguage == 'en' ? 'Personal Cost Questions' : 'व्यक्तिगत लागत प्रश्न'),
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -99,17 +104,36 @@ class _BusinessFinancialPersonalcostState extends State<BusinessFinancialPersona
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Personal Cost Questions',
-          style: TextStyle(fontSize: 15),
+        title: Text(
+          currentLanguage == 'en' ? 'Personal Cost Questions' : 'व्यक्तिगत लागत प्रश्न',
+          style: const TextStyle(fontSize: 15),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () async {
             // Handle back press and navigate
-            Get.to(() => BusinessFinancialOperatingcost(userId: widget.userId));
+            Get.to(() => BusinessFinancialOperatingcost(
+              userId: widget.userId,
+              initialLanguage: currentLanguage,
+            ));
           },
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  currentLanguage = currentLanguage == 'en' ? 'hi' : 'en';
+                });
+              },
+              child: Text(
+                currentLanguage == 'en' ? 'हिंदी' : 'English',
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Obx(() {
         if (surveyController.isLoading.value) {
@@ -117,7 +141,7 @@ class _BusinessFinancialPersonalcostState extends State<BusinessFinancialPersona
         }
 
         if (surveyController.questions.isEmpty) {
-          return const Center(child: Text('No survey questions available.'));
+          return Center(child: Text(currentLanguage == 'en' ? 'No survey questions available.' : 'कोई सर्वेक्षण प्रश्न उपलब्ध नहीं है।'));
         }
 
         return Form(
@@ -150,7 +174,7 @@ class _BusinessFinancialPersonalcostState extends State<BusinessFinancialPersona
                     children: [
                       const SizedBox(height: 10),
                       Text(
-                        question['text'],
+                        question['text'][currentLanguage] ?? question['text'],
                         style: const TextStyle(
                           fontSize: 21,
                           fontWeight: FontWeight.bold,
@@ -169,17 +193,17 @@ class _BusinessFinancialPersonalcostState extends State<BusinessFinancialPersona
                             FocusScope.of(context).unfocus(); // Close the keyboard if it's the last field
                           }
                         },
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          labelText: 'Your answer',
-                          prefixIcon: Icon(Icons.question_answer),
+                        decoration: InputDecoration(
+                          border: const OutlineInputBorder(),
+                          labelText: currentLanguage == 'en' ? 'Your answer' : 'आपका उत्तर',
+                          prefixIcon: const Icon(Icons.question_answer),
                         ),
                         validator: (value) {
                           final SurveyController surveyController = Get.find<SurveyController>();
 
                           try {
                             if (value == null || value.isEmpty) {
-                              return 'Please enter an answer';
+                              return currentLanguage == 'en' ? 'Please enter an answer' : 'कृपया उत्तर दर्ज करें';
                             }
 
                             if (index != answerControllers.length - 1) {
@@ -194,7 +218,10 @@ class _BusinessFinancialPersonalcostState extends State<BusinessFinancialPersona
                               if (individualSum < lowerLimit || individualSum > upperLimit) {
                                 if (!surveyController.isPersonalCostSnackbarShown.value) {
                                   surveyController.isPersonalCostSnackbarShown.value = true;
-                                  Get.snackbar('Error', "Total exceeds expected cost range");
+                                  Get.snackbar(
+                                    currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                                    currentLanguage == 'en' ? 'Total exceeds expected cost range' : 'कुल अपेक्षित लागत सीमा से अधिक है'
+                                  );
                                 }
                                 return "";
                               }
@@ -204,7 +231,12 @@ class _BusinessFinancialPersonalcostState extends State<BusinessFinancialPersona
                           } catch (e) {
                             if (!surveyController.isPersonalCostSnackbarShown.value) {
                               surveyController.isPersonalCostSnackbarShown.value = true;
-                              Get.snackbar('Error', 'An error occurred: ${e.toString()}');
+                              Get.snackbar(
+                                currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                                currentLanguage == 'en'
+                                    ? 'An error occurred: ${e.toString()}'
+                                    : 'एक त्रुटि हुई: ${e.toString()}'
+                              );
                             }
                             return '';
                           }
@@ -231,7 +263,10 @@ class _BusinessFinancialPersonalcostState extends State<BusinessFinancialPersona
             surveyController.isPersonalCostSnackbarShown.value = false;
             if (_formKey.currentState?.validate() ?? false) {
               if (_isSaved) {
-                Get.snackbar('Info', 'Data has already been saved.');
+                Get.snackbar(
+                  currentLanguage == 'en' ? 'Info' : 'जानकारी',
+                  currentLanguage == 'en' ? 'Data has already been saved.' : 'डेटा पहले से ही सहेजा जा चुका है।'
+                );
                 return;
               }
 
@@ -244,7 +279,7 @@ class _BusinessFinancialPersonalcostState extends State<BusinessFinancialPersona
 
                 if (answer.isNotEmpty) {
                   responses.add({
-                    'question': question['text'],
+                    'question': question['text'][currentLanguage] ?? question['text'],
                     'answer': answer,
                   });
                   accessResponses.checkAndInsertValues({
@@ -269,9 +304,19 @@ class _BusinessFinancialPersonalcostState extends State<BusinessFinancialPersona
                     _isSaved = true; // Update flag after saving data
                   });
 
-                  Get.snackbar('Success', 'Survey responses saved successfully');
+                  Get.snackbar(
+                    currentLanguage == 'en' ? 'Success' : 'सफल',
+                    currentLanguage == 'en'
+                        ? 'Survey responses saved successfully'
+                        : 'सर्वेक्षण प्रतिक्रियाएं सफलतापूर्वक सहेजी गईं'
+                  );
                 } catch (e) {
-                  Get.snackbar('Error', 'Failed to save responses. Try again.');
+                  Get.snackbar(
+                    currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                    currentLanguage == 'en'
+                        ? 'Failed to save responses. Try again.'
+                        : 'प्रतिक्रियाएं सहेजने में विफल। पुनः प्रयास करें।'
+                  );
                 }
               } else {
                 // Save responses in cache if offline
@@ -279,19 +324,32 @@ class _BusinessFinancialPersonalcostState extends State<BusinessFinancialPersona
                 setState(() {
                   _isSaved = true; // Update flag for local save
                 });
-                Get.snackbar('Saved Locally', 'No internet connection. Responses saved locally and will sync later.');
+                Get.snackbar(
+                  currentLanguage == 'en' ? 'Saved Locally' : 'स्थानीय रूप से सहेजा गया',
+                  currentLanguage == 'en'
+                      ? 'No internet connection. Responses saved locally and will sync later.'
+                      : 'कोई इंटरनेट कनेक्शन नहीं। प्रतिक्रियाएं स्थानीय रूप से सहेजी गईं और बाद में सिंक होंगी।'
+                );
               }
               print('global');
               print(accessResponses.allAnswers);
               // Navigate to the next screen or show a success message
-              Get.to(() => BusinessNonfinancialSetone(userId: widget.userId));
+              Get.to(() => BusinessNonfinancialSetone(
+                userId: widget.userId,
+                initialLanguage: currentLanguage,
+              ));
             } else {
               if (!surveyController.isPersonalCostSnackbarShown.value) {
-                Get.snackbar('Error', 'Please answer all questions.');
+                Get.snackbar(
+                  currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                  currentLanguage == 'en'
+                      ? 'Please answer all questions.'
+                      : 'कृपया सभी प्रश्नों का उत्तर दें।'
+                );
               }
             }
           },
-          child: const Text('Next'),
+          child: Text(currentLanguage == 'en' ? 'Next' : 'अगला'),
         ),
       ),
     );

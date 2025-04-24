@@ -9,20 +9,47 @@ import 'package:loan/widgets/common_widgets.dart';
 import 'package:random_string/random_string.dart';
 import '../global_functions//checkConnectivity.dart';
 
-
-class DetailScreen extends StatelessWidget {
+class DetailScreen extends StatefulWidget {
   DetailScreen({super.key});
 
+  @override
+  State<DetailScreen> createState() => _DetailScreenState();
+}
+
+class _DetailScreenState extends State<DetailScreen> {
   final _nameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   final DatabaseService _databaseService = DatabaseService();
   final UserCacheService _userCacheService = UserCacheService();
   final FirestoreCsvExport exporter = FirestoreCsvExport();
+  String currentLanguage = 'en'; // Default language
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: Text(
+          currentLanguage == 'en' ? 'Enter Your Details' : 'अपना विवरण दर्ज करें',
+          style: const TextStyle(fontSize: 15),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  currentLanguage = currentLanguage == 'en' ? 'hi' : 'en';
+                });
+              },
+              child: Text(
+                currentLanguage == 'en' ? 'हिंदी' : 'English',
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0),
         child: Center(
@@ -35,28 +62,32 @@ class DetailScreen extends StatelessWidget {
                     size: 100, color: Colors.blueAccent),
                 const SizedBox(height: 20),
                 const SizedBox(height: 10),
-                const Text(
-                  'Enter your details below',
-                  style: TextStyle(
+                Text(
+                  currentLanguage == 'en' 
+                      ? 'Enter your details below' 
+                      : 'अपना विवरण नीचे दर्ज करें',
+                  style: const TextStyle(
                     fontSize: 16,
                     color: Colors.grey,
                   ),
                 ),
                 const SizedBox(height: 30),
                 CustomTextField(
-                  label: 'Name',
+                  label: currentLanguage == 'en' ? 'Name' : 'नाम',
                   controller: _nameController,
                   icon: Icons.person_outline,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your name';
+                      return currentLanguage == 'en' 
+                          ? 'Please enter your name' 
+                          : 'कृपया अपना नाम दर्ज करें';
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: 50),
                 CustomButton(
-                  label: "Next",
+                  label: currentLanguage == 'en' ? "Next" : "अगला",
                   onPressed: () async {
                     if (_formKey.currentState!.validate()) {
                       String id = randomAlphaNumeric(10);
@@ -72,17 +103,16 @@ class DetailScreen extends StatelessWidget {
                           _userCacheService.clearUserData();
                         } else {
                           // save locally if offline
-                          // await box
-                          //     .write('cached_user', {'name': name, 'id': id});
-                          // print('user cached locally');
                           _userCacheService.saveUserData(name, id);
                         }
                       } catch (e) {
                         print('Error saving user: $e');
                       }
 
-                      // Get.to(() => BusinessFinancialScreen(userId: id));
-                      Get.to(() => PersonalDetailsScreen(userId: id));
+                      Get.to(() => PersonalDetailsScreen(
+                        userId: id,
+                        initialLanguage: currentLanguage,
+                      ));
                     }
                   },
                 ),

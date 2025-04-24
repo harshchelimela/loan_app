@@ -13,8 +13,9 @@ import 'package:loan/screens/personal_details/personal_details_screen.dart';
 
 class BusinessFinancialScreen extends StatefulWidget {
   final String userId;
+  final String initialLanguage;
 
-  BusinessFinancialScreen({super.key, required this.userId});
+  BusinessFinancialScreen({super.key, required this.userId, this.initialLanguage = 'en'});
 
   @override
   _BusinessFinancialScreenState createState() => _BusinessFinancialScreenState();
@@ -27,10 +28,13 @@ class _BusinessFinancialScreenState extends State<BusinessFinancialScreen> {
   List<FocusNode> focusNodes = [];
   AccessResponses accessResponses = AccessResponses();
   bool isValidated = false;
+  String currentLanguage = 'en'; // Default language
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    currentLanguage = widget.initialLanguage; // Set initial language from parameter
 
     // Register SurveyController
     final SurveyController surveyController = Get.put(SurveyController());
@@ -40,24 +44,25 @@ class _BusinessFinancialScreenState extends State<BusinessFinancialScreen> {
       surveyController.questions.clear();
       await surveyController.checkStatusAndFetchQuestions('business_financial_questions');
       await _loadSavedResponses(); // Load responses after fetching questions
+      setState(() {
+        _isLoading = false;
+      });
     });
 
     surveyController.questions.listen((questions) {
       setState(() {
         focusNodes = List.generate(
           questions.length,
-              (index) => FocusNode(),
+          (index) => FocusNode(),
         );
       });
     });
   }
 
-  // Function to load saved responses and pre-populate the form fields
   Future<void> _loadSavedResponses() async {
     final SurveyController surveyController = Get.find<SurveyController>();
     final userDocRef = FirebaseFirestore.instance.collection('loan_users').doc(widget.userId);
 
-    // Fetch saved responses from Firestore
     try {
       final snapshot = await userDocRef.collection('survey_responses').get();
 
@@ -68,26 +73,26 @@ class _BusinessFinancialScreenState extends State<BusinessFinancialScreen> {
         }
       }
 
-      // Populate answerControllers with saved answers
       if (answerControllers.length != surveyController.questions.length) {
-        answerControllers = List.generate(surveyController.questions.length, (index) {
-          var question = surveyController.questions[index];
-          var controller = TextEditingController(text: savedAnswers[question['text']] ?? '');
+        setState(() {
+          answerControllers = List.generate(surveyController.questions.length, (index) {
+            var question = surveyController.questions[index];
+            var controller = TextEditingController(
+              text: savedAnswers[question['text'][currentLanguage] ?? question['text']] ?? ''
+            );
 
-          // Add listener to detect changes and reset _isSaved
-          controller.addListener(() {
-            setState(() {
-              _isSaved = false;
+            controller.addListener(() {
+              setState(() {
+                _isSaved = false;
+              });
             });
-          });
 
-          return controller;
+            return controller;
+          });
         });
       }
-
-      setState(() {}); // Refresh the UI to reflect pre-filled data
     } catch (e) {
-      debugPrint("error loading saved responses $e");
+      debugPrint("Error loading saved responses: $e");
     }
   }
 
@@ -96,31 +101,44 @@ class _BusinessFinancialScreenState extends State<BusinessFinancialScreen> {
     final SurveyController surveyController = Get.find<SurveyController>();
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Business Financial Details - sales',
-          style: TextStyle(fontSize: 15),
+        title: Text(
+          currentLanguage == 'en' ? 'Business Financial Details - sales' : 'व्यवसाय वित्तीय विवरण - बिक्री',
+          style: const TextStyle(fontSize: 15),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () async {
             // Handle back press and question fetching logic
-            Get.to(() => PersonalDetailsScreen(userId: widget.userId));
+            Get.to(() => PersonalDetailsScreen(
+              userId: widget.userId,
+              initialLanguage: currentLanguage,
+            ));
           },
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  currentLanguage = currentLanguage == 'en' ? 'hi' : 'en';
+                });
+              },
+              child: Text(
+                currentLanguage == 'en' ? 'हिंदी' : 'English',
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+          ),
+        ],
       ),
-      // appBar: AppBar(
-      //   title: const Text(
-      //     'Business Financial Details - sales',
-      //     style: TextStyle(fontSize: 15),
-      //   ),
-      // ),
       body: Obx(() {
         if (surveyController.isLoading.value) {
           return const Center(child: CircularProgressIndicator());
         }
 
         if (surveyController.questions.isEmpty) {
-          return const Center(child: Text('No survey questions available.'));
+          return Center(child: Text(currentLanguage == 'en' ? 'No survey questions available.' : 'कोई सर्वेक्षण प्रश्न उपलब्ध नहीं है।'));
         }
 
         return Form(
@@ -156,7 +174,7 @@ class _BusinessFinancialScreenState extends State<BusinessFinancialScreen> {
                     children: [
                       const SizedBox(height: 10),
                       Text(
-                        question['text'],
+                        question['text'][currentLanguage] ?? question['text'],
                         style: const TextStyle(
                           fontSize: 21,
                           fontWeight: FontWeight.bold,
@@ -175,78 +193,11 @@ class _BusinessFinancialScreenState extends State<BusinessFinancialScreen> {
                               FocusScope.of(context).unfocus(); // Close the keyboard if it's the last field
                             }
                           },
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            labelText: 'Your answer',
-                            prefixIcon: Icon(Icons.question_answer),
+                          decoration: InputDecoration(
+                            border: const OutlineInputBorder(),
+                            labelText: currentLanguage == 'en' ? 'Your answer' : 'आपका उत्तर',
+                            prefixIcon: const Icon(Icons.question_answer),
                           ),
-                          // validator: (value) {
-                          //   if (value == null || value.isEmpty) {
-                          //     return 'Please enter an answer';
-                          //   }
-                          //
-                          //   double monthlySales =
-                          //       getValueFromField("Monthly_Sales");
-                          //   double weeklySales =
-                          //       getValueFromField("Weekly_Sales");
-                          //   double dailySales = getValueFromField("Daily_Sales");
-                          //   double peakSales = getValueFromField("Peak_Sales");
-                          //   double annualSales =
-                          //       getValueFromField("Annual_Sales_1");
-                          //
-                          //   /// Monthly Field - Less than Daily and Weekly
-                          //   // if (surveyController.questions[index]['label'] ==
-                          //   //     "Monthly_Sales") {
-                          //   // if (index == 0) {
-                          //     if (monthlySales < weeklySales) {
-                          //       return "Monthly sales should not be less than weekly sales.";
-                          //     }
-                          //     if (monthlySales < dailySales) {
-                          //       return "Monthly sales should not be less than daily sales.";
-                          //     }
-                          //   // }
-                          //
-                          //   /// Weekly Field - Less than Daily
-                          //   // if (surveyController.questions[index]['label'] ==
-                          //   //     "Weekly_Sales") {
-                          //   // if (index == 1){
-                          //     if (weeklySales < dailySales) {
-                          //       return "Weekly sales should not be less than Daily sales.";
-                          //     }
-                          //   //}
-                          //
-                          //   // if (surveyController.questions[index]['label'] ==
-                          //   //     "Peak_Sales") {
-                          //   // if (index == 3){
-                          //     if (peakSales < dailySales) {
-                          //       return "Peak Monthly sales should not be less than Daily sales.";
-                          //     }
-                          //     if (annualSales < weeklySales) {
-                          //       return "Peak Monthly sales should not be less than Weekly sales.";
-                          //     }
-                          //     if (annualSales < monthlySales) {
-                          //       return "Peak Monthly sales should not be less than Average Monthly sales.";
-                          //     }
-                          //   // }
-                          //
-                          //   // if (surveyController.questions[index]['label'] ==
-                          //   //     "Annual_Sales_1") {
-                          //   // if (index == 7){
-                          //     if (annualSales < dailySales) {
-                          //       return "Annual sales should not be less than Daily sales.";
-                          //     }
-                          //     if (annualSales < weeklySales) {
-                          //       return "Annual sales should not be less than Weekly sales.";
-                          //     }
-                          //     if (annualSales < monthlySales) {
-                          //       return "Annual sales should not be less than Monthly sales.";
-                          //     }
-                          //   //}
-                          //
-                          //   ///Peak and Average Sales
-                          //
-                          //   return null;
-                          // },
                           validator: (value) {
                             final SurveyController surveyController = Get.find<SurveyController>();
 
@@ -254,7 +205,10 @@ class _BusinessFinancialScreenState extends State<BusinessFinancialScreen> {
                               if (value == null || value.isEmpty) {
                                 if (!surveyController.isSnackbarShown.value) {
                                   surveyController.isSnackbarShown.value = true;
-                                  Get.snackbar('Error', 'Please enter an answer');
+                                  Get.snackbar(
+                                    currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                                    currentLanguage == 'en' ? 'Please enter an answer' : 'कृपया उत्तर दर्ज करें'
+                                  );
                                 }
                                 return '';
                               }
@@ -268,29 +222,50 @@ class _BusinessFinancialScreenState extends State<BusinessFinancialScreen> {
                               String errorMessage = '';
 
                               if (monthlySales < weeklySales) {
-                                errorMessage = "Monthly sales should not be less than weekly sales.";
+                                errorMessage = currentLanguage == 'en' 
+                                    ? "Monthly sales should not be less than weekly sales."
+                                    : "मासिक बिक्री साप्ताहिक बिक्री से कम नहीं होनी चाहिए।";
                               } else if (monthlySales < dailySales) {
-                                errorMessage = "Monthly sales should not be less than daily sales.";
+                                errorMessage = currentLanguage == 'en'
+                                    ? "Monthly sales should not be less than daily sales."
+                                    : "मासिक बिक्री दैनिक बिक्री से कम नहीं होनी चाहिए।";
                               } else if (weeklySales < dailySales) {
-                                errorMessage = "Weekly sales should not be less than Daily sales.";
+                                errorMessage = currentLanguage == 'en'
+                                    ? "Weekly sales should not be less than Daily sales."
+                                    : "साप्ताहिक बिक्री दैनिक बिक्री से कम नहीं होनी चाहिए।";
                               } else if (peakSales < dailySales) {
-                                errorMessage = "Peak Monthly sales should not be less than Daily sales.";
+                                errorMessage = currentLanguage == 'en'
+                                    ? "Peak Monthly sales should not be less than Daily sales."
+                                    : "शिखर मासिक बिक्री दैनिक बिक्री से कम नहीं होनी चाहिए।";
                               } else if (annualSales < weeklySales) {
-                                errorMessage = "Annual Sales should not be less than Weekly sales.";
+                                errorMessage = currentLanguage == 'en'
+                                    ? "Annual Sales should not be less than Weekly sales."
+                                    : "वार्षिक बिक्री साप्ताहिक बिक्री से कम नहीं होनी चाहिए।";
                               } else if (annualSales < monthlySales) {
-                                errorMessage = "Annual sales should not be less than Average Monthly sales.";
+                                errorMessage = currentLanguage == 'en'
+                                    ? "Annual sales should not be less than Average Monthly sales."
+                                    : "वार्षिक बिक्री औसत मासिक बिक्री से कम नहीं होनी चाहिए।";
                               } else if (annualSales < dailySales) {
-                                errorMessage = "Annual sales should not be less than Daily sales.";
+                                errorMessage = currentLanguage == 'en'
+                                    ? "Annual sales should not be less than Daily sales."
+                                    : "वार्षिक बिक्री दैनिक बिक्री से कम नहीं होनी चाहिए।";
                               } else if (annualSales < weeklySales) {
-                                errorMessage = "Annual sales should not be less than Weekly sales.";
+                                errorMessage = currentLanguage == 'en'
+                                    ? "Annual sales should not be less than Weekly sales."
+                                    : "वार्षिक बिक्री साप्ताहिक बिक्री से कम नहीं होनी चाहिए।";
                               } else if (annualSales < monthlySales) {
-                                errorMessage = "Annual sales should not be less than Monthly sales.";
+                                errorMessage = currentLanguage == 'en'
+                                    ? "Annual sales should not be less than Monthly sales."
+                                    : "वार्षिक बिक्री मासिक बिक्री से कम नहीं होनी चाहिए।";
                               }
 
                               if (errorMessage.isNotEmpty) {
                                 if (!surveyController.isSnackbarShown.value) {
                                   surveyController.isSnackbarShown.value = true;
-                                  Get.snackbar('Error', errorMessage);
+                                  Get.snackbar(
+                                    currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                                    errorMessage
+                                  );
                                 }
                                 return '';
                               }
@@ -299,7 +274,12 @@ class _BusinessFinancialScreenState extends State<BusinessFinancialScreen> {
                             } catch (e) {
                               if (!surveyController.isSnackbarShown.value) {
                                 surveyController.isSnackbarShown.value = true;
-                                Get.snackbar('Error', 'An unexpected error occurred: ${e.toString()}');
+                                Get.snackbar(
+                                  currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                                  currentLanguage == 'en'
+                                      ? 'An unexpected error occurred: ${e.toString()}'
+                                      : 'एक अप्रत्याशित त्रुटि हुई: ${e.toString()}'
+                                );
                               }
                               return '';
                             }
@@ -319,7 +299,6 @@ class _BusinessFinancialScreenState extends State<BusinessFinancialScreen> {
           onPressed: () async {
             surveyController.isSnackbarShown.value = false;
             if (_formKey.currentState?.validate() ?? false) {
-              // No need to check _isSaved when saving updated responses
               bool isConnected = await isConnectedToInternet();
 
               List<Map<String, dynamic>> responses = [];
@@ -329,7 +308,7 @@ class _BusinessFinancialScreenState extends State<BusinessFinancialScreen> {
 
                 if (answer.isNotEmpty) {
                   responses.add({
-                    'question': question['text'],
+                    'question': question['text'][currentLanguage] ?? question['text'],
                     'answer': answer,
                   });
                   accessResponses.checkAndInsertValues({
@@ -341,12 +320,6 @@ class _BusinessFinancialScreenState extends State<BusinessFinancialScreen> {
               if (isConnected) {
                 try {
                   final userDocRef = FirebaseFirestore.instance.collection('loan_users').doc(widget.userId);
-
-                  // Clear existing responses and save updated ones
-                  // var existingResponsesSnapshot = await userDocRef.collection('survey_responses').get();
-                  // for (var doc in existingResponsesSnapshot.docs) {
-                  //   await doc.reference.delete();
-                  // }
 
                   for (var response in responses) {
                     await userDocRef.collection('survey_responses').add({
@@ -360,29 +333,49 @@ class _BusinessFinancialScreenState extends State<BusinessFinancialScreen> {
                     _isSaved = true;
                   });
 
-                  Get.snackbar('Success', 'Survey responses saved successfully');
+                  Get.snackbar(
+                    currentLanguage == 'en' ? 'Success' : 'सफल',
+                    currentLanguage == 'en'
+                        ? 'Survey responses saved successfully'
+                        : 'सर्वेक्षण प्रतिक्रियाएं सफलतापूर्वक सहेजी गईं'
+                  );
                 } catch (e) {
-                  Get.snackbar('Error', 'Failed to save responses. Try again.');
+                  Get.snackbar(
+                    currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                    currentLanguage == 'en'
+                        ? 'Failed to save responses. Try again.'
+                        : 'प्रतिक्रियाएं सहेजने में विफल। पुनः प्रयास करें।'
+                  );
                 }
               } else {
                 UserCacheService().saveSurveyResponse(widget.userId, responses);
                 setState(() {
                   _isSaved = true;
                 });
-                Get.snackbar('Saved Locally', 'No internet connection. Responses saved locally and will sync later.');
+                Get.snackbar(
+                  currentLanguage == 'en' ? 'Saved Locally' : 'स्थानीय रूप से सहेजा गया',
+                  currentLanguage == 'en'
+                      ? 'No internet connection. Responses saved locally and will sync later.'
+                      : 'कोई इंटरनेट कनेक्शन नहीं। प्रतिक्रियाएं स्थानीय रूप से सहेजी गईं और बाद में सिंक होंगी।'
+                );
               }
 
-              print('global');
-              print(accessResponses.allAnswers);
-
-              Get.to(() => BusinessFinancialCogsScreen(userId: widget.userId));
+              Get.to(() => BusinessFinancialCogsScreen(
+                userId: widget.userId,
+                initialLanguage: currentLanguage,
+              ));
             } else {
               if (!surveyController.isSnackbarShown.value) {
-                Get.snackbar('Error', 'Please answer all questions.');
+                Get.snackbar(
+                  currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                  currentLanguage == 'en'
+                      ? 'Please answer all questions.'
+                      : 'कृपया सभी प्रश्नों का उत्तर दें।'
+                );
               }
             }
           },
-          child: const Text('Next'),
+          child: Text(currentLanguage == 'en' ? 'Next' : 'अगला'),
         ),
       ),
     );

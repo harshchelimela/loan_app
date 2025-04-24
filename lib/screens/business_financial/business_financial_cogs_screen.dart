@@ -12,33 +12,39 @@ import 'package:loan/screens/business_financial/business_financial_screen.dart';
 
 class BusinessFinancialCogsScreen extends StatefulWidget {
   final String userId;
+  final String initialLanguage;
 
-  BusinessFinancialCogsScreen({super.key, required this.userId});
+  BusinessFinancialCogsScreen({super.key, required this.userId, this.initialLanguage = 'en'});
 
   @override
-  _BusinessFinancialCogsScreenState createState() =>
-      _BusinessFinancialCogsScreenState();
+  _BusinessFinancialCogsScreenState createState() => _BusinessFinancialCogsScreenState();
 }
 
-class _BusinessFinancialCogsScreenState
-    extends State<BusinessFinancialCogsScreen> {
+class _BusinessFinancialCogsScreenState extends State<BusinessFinancialCogsScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   List<TextEditingController> answerControllers = [];
   bool _isSaved = false; // Flag to track if data has been saved
   bool _isLoading = true; // Flag to track if data is being loaded
   List<FocusNode> focusNodes = [];
   AccessResponses accessResponses = AccessResponses();
+  bool isValidated = false;
+  String currentLanguage = 'en'; // Default language
 
   @override
   void initState() {
     super.initState();
+    currentLanguage = widget.initialLanguage; // Set initial language from parameter
+
+    // Register SurveyController
     final SurveyController surveyController = Get.put(SurveyController());
+
+    // Fetch questions and load saved responses
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await surveyController
-          .checkStatusAndFetchQuestions('business_financial_questions_cogs');
-      await _loadSavedResponses(); // Load saved data when the screen is loaded
+      surveyController.questions.clear();
+      await surveyController.checkStatusAndFetchQuestions('business_financial_questions_cogs');
+      await _loadSavedResponses(); // Load responses after fetching questions
       setState(() {
-        _isLoading = false; // Set loading to false after data is loaded
+        _isLoading = false;
       });
     });
 
@@ -46,50 +52,46 @@ class _BusinessFinancialCogsScreenState
       setState(() {
         focusNodes = List.generate(
           questions.length,
-              (index) => FocusNode(),
+          (index) => FocusNode(),
         );
       });
     });
-
   }
 
-  // Function to load saved responses and pre-populate the form fields
   Future<void> _loadSavedResponses() async {
     final SurveyController surveyController = Get.find<SurveyController>();
-    final userDocRef =
-        FirebaseFirestore.instance.collection('loan_users').doc(widget.userId);
+    final userDocRef = FirebaseFirestore.instance.collection('loan_users').doc(widget.userId);
 
-    // Fetch saved responses from Firestore
-    final snapshot = await userDocRef.collection('survey_responses').get();
+    try {
+      final snapshot = await userDocRef.collection('survey_responses').get();
 
-    Map<String, String> savedAnswers = {};
-    if (snapshot.docs.isNotEmpty) {
-      for (var doc in snapshot.docs) {
-        savedAnswers[doc['question']] = doc['answer'];
+      Map<String, String> savedAnswers = {};
+      if (snapshot.docs.isNotEmpty) {
+        for (var doc in snapshot.docs) {
+          savedAnswers[doc['question']] = doc['answer'];
+        }
       }
-    }
-    print('meta');
-    print(savedAnswers);
 
-    // Populate answerControllers with saved answers
-    if (answerControllers.isEmpty) {
-      setState(() {
-        answerControllers =
-            List.generate(surveyController.questions.length, (index) {
-          var question = surveyController.questions[index];
-          var controller =
-              TextEditingController(text: savedAnswers[question['text']] ?? '');
+      if (answerControllers.isEmpty) {
+        setState(() {
+          answerControllers = List.generate(surveyController.questions.length, (index) {
+            var question = surveyController.questions[index];
+            var controller = TextEditingController(
+              text: savedAnswers[question['text'][currentLanguage] ?? question['text']] ?? ''
+            );
 
-          // Add listener to detect changes and reset _isSaved
-          controller.addListener(() {
-            setState(() {
-              _isSaved = false;
+            controller.addListener(() {
+              setState(() {
+                _isSaved = false;
+              });
             });
-          });
 
-          return controller;
+            return controller;
+          });
         });
-      });
+      }
+    } catch (e) {
+      debugPrint("Error loading saved responses: $e");
     }
   }
 
@@ -100,7 +102,7 @@ class _BusinessFinancialCogsScreenState
     if (_isLoading) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Purchases cost of goods sold'),
+          title: Text(currentLanguage == 'en' ? 'Purchases cost of goods sold' : 'माल की खरीद लागत'),
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -108,17 +110,36 @@ class _BusinessFinancialCogsScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          ' Purchases cost of goods sold',
-          style: TextStyle(fontSize: 15),
+        title: Text(
+          currentLanguage == 'en' ? 'Purchases cost of goods sold' : 'माल की खरीद लागत',
+          style: const TextStyle(fontSize: 15),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () async {
             // Handle back press and question fetching logic
-            Get.to(() => BusinessFinancialScreen(userId: widget.userId));
+            Get.to(() => BusinessFinancialScreen(
+              userId: widget.userId,
+              initialLanguage: currentLanguage,
+            ));
           },
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  currentLanguage = currentLanguage == 'en' ? 'hi' : 'en';
+                });
+              },
+              child: Text(
+                currentLanguage == 'en' ? 'हिंदी' : 'English',
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Obx(() {
         if (surveyController.isLoading.value) {
@@ -126,7 +147,7 @@ class _BusinessFinancialCogsScreenState
         }
 
         if (surveyController.questions.isEmpty) {
-          return const Center(child: Text('No survey questions available.'));
+          return Center(child: Text(currentLanguage == 'en' ? 'No survey questions available.' : 'कोई सर्वेक्षण प्रश्न उपलब्ध नहीं है।'));
         }
 
         return Form(
@@ -159,7 +180,7 @@ class _BusinessFinancialCogsScreenState
                     children: [
                       const SizedBox(height: 10),
                       Text(
-                        question['text'],
+                        question['text'][currentLanguage] ?? question['text'],
                         style: const TextStyle(
                           fontSize: 21,
                           fontWeight: FontWeight.bold,
@@ -180,10 +201,10 @@ class _BusinessFinancialCogsScreenState
                             FocusScope.of(context).unfocus(); // Close the keyboard if it's the last field
                           }
                         },
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          labelText: 'Your answer',
-                          prefixIcon: Icon(Icons.question_answer),
+                        decoration: InputDecoration(
+                          border: const OutlineInputBorder(),
+                          labelText: currentLanguage == 'en' ? 'Your answer' : 'आपका उत्तर',
+                          prefixIcon: const Icon(Icons.question_answer),
                         ),
                           validator: (value) {
                             final SurveyController surveyController = Get.find<SurveyController>();
@@ -192,7 +213,10 @@ class _BusinessFinancialCogsScreenState
                               if (value == null || value.isEmpty) {
                                 if (!surveyController.isCOGSScreenSnackbarShown.value) {
                                   surveyController.isCOGSScreenSnackbarShown.value = true;
-                                  Get.snackbar('Error', 'Please enter an answer');
+                                  Get.snackbar(
+                                    currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                                    currentLanguage == 'en' ? 'Please enter an answer' : 'कृपया उत्तर दर्ज करें'
+                                  );
                                 }
                                 return '';
                               }
@@ -210,17 +234,26 @@ class _BusinessFinancialCogsScreenState
                               String errorMessage = '';
 
                               if (totalPurchase < weeklyPurchases) {
-                                errorMessage = "Total Purchase should not be less than weekly purchases.";
+                                errorMessage = currentLanguage == 'en'
+                                    ? "Total Purchase should not be less than weekly purchases."
+                                    : "कुल खरीद साप्ताहिक खरीद से कम नहीं होनी चाहिए।";
                               } else if (totalPurchase < dailyPurchases) {
-                                errorMessage = "Total Purchase should not be less than daily purchases.";
-                              } else if (weeklyPurchases< dailyPurchases) {
-                                errorMessage = "Weekly Purchases should not be less than Daily purchases.";
+                                errorMessage = currentLanguage == 'en'
+                                    ? "Total Purchase should not be less than daily purchases."
+                                    : "कुल खरीद दैनिक खरीद से कम नहीं होनी चाहिए।";
+                              } else if (weeklyPurchases < dailyPurchases) {
+                                errorMessage = currentLanguage == 'en'
+                                    ? "Weekly Purchases should not be less than Daily purchases."
+                                    : "साप्ताहिक खरीद दैनिक खरीद से कम नहीं होनी चाहिए।";
                               }
 
                               if (errorMessage.isNotEmpty) {
                                 if (!surveyController.isCOGSScreenSnackbarShown.value) {
                                   surveyController.isCOGSScreenSnackbarShown.value = true;
-                                  Get.snackbar('Error', errorMessage);
+                                  Get.snackbar(
+                                    currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                                    errorMessage
+                                  );
                                 }
                                 return '';
                               }
@@ -229,7 +262,12 @@ class _BusinessFinancialCogsScreenState
                             } catch (e) {
                               if (!surveyController.isCOGSScreenSnackbarShown.value) {
                                 surveyController.isCOGSScreenSnackbarShown.value = true;
-                                Get.snackbar('Error', 'An unexpected error occurred: ${e.toString()}');
+                                Get.snackbar(
+                                  currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                                  currentLanguage == 'en'
+                                      ? 'An unexpected error occurred: ${e.toString()}'
+                                      : 'एक अप्रत्याशित त्रुटि हुई: ${e.toString()}'
+                                );
                               }
                               return '';
                             }
@@ -256,7 +294,10 @@ class _BusinessFinancialCogsScreenState
             if (_formKey.currentState?.validate() ?? false) {
               surveyController.isCOGSScreenSnackbarShown.value = false;
               if (_isSaved) {
-                Get.snackbar('Info', 'Data has already been saved.');
+                Get.snackbar(
+                  currentLanguage == 'en' ? 'Info' : 'जानकारी',
+                  currentLanguage == 'en' ? 'Data has already been saved.' : 'डेटा पहले से ही सहेजा जा चुका है।'
+                );
                 return;
               }
 
@@ -269,7 +310,7 @@ class _BusinessFinancialCogsScreenState
 
                 if (answer.isNotEmpty) {
                   responses.add({
-                    'question': question['text'],
+                    'question': question['text'][currentLanguage] ?? question['text'],
                     'answer': answer,
                   });
                   accessResponses.checkAndInsertValues({
@@ -297,9 +338,18 @@ class _BusinessFinancialCogsScreenState
                   });
 
                   Get.snackbar(
-                      'Success', 'Survey responses saved successfully');
+                    currentLanguage == 'en' ? 'Success' : 'सफल',
+                    currentLanguage == 'en'
+                        ? 'Survey responses saved successfully'
+                        : 'सर्वेक्षण प्रतिक्रियाएं सफलतापूर्वक सहेजी गईं'
+                  );
                 } catch (e) {
-                  Get.snackbar('Error', 'Failed to save responses. Try again.');
+                  Get.snackbar(
+                    currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                    currentLanguage == 'en'
+                        ? 'Failed to save responses. Try again.'
+                        : 'प्रतिक्रियाएं सहेजने में विफल। पुनः प्रयास करें।'
+                  );
                 }
               } else {
                 // Save responses in cache if offline
@@ -307,23 +357,34 @@ class _BusinessFinancialCogsScreenState
                 setState(() {
                   _isSaved = true;
                 });
-                Get.snackbar('Saved Locally',
-                    'No internet connection. Responses saved locally and will sync later.');
+                Get.snackbar(
+                  currentLanguage == 'en' ? 'Saved Locally' : 'स्थानीय रूप से सहेजा गया',
+                  currentLanguage == 'en'
+                      ? 'No internet connection. Responses saved locally and will sync later.'
+                      : 'कोई इंटरनेट कनेक्शन नहीं। प्रतिक्रियाएं स्थानीय रूप से सहेजी गईं और बाद में सिंक होंगी।'
+                );
               }
 
               print('global');
               print(accessResponses.allAnswers);
               // Navigate to the next screen
-              Get.to(
-                  () => BusinessFinancialOperatingcost(userId: widget.userId));
+              Get.to(() => BusinessFinancialOperatingcost(
+                userId: widget.userId,
+                initialLanguage: currentLanguage,
+              ));
             } else {
               if (!surveyController.isCOGSScreenSnackbarShown.value) {
-                Get.snackbar('Error', 'Please answer all questions.');
+                Get.snackbar(
+                  currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                  currentLanguage == 'en'
+                      ? 'Please answer all questions.'
+                      : 'कृपया सभी प्रश्नों का उत्तर दें।'
+                );
               }
 
             }
           },
-          child: const Text('Next'),
+          child: Text(currentLanguage == 'en' ? 'Next' : 'अगला'),
         ),
       ),
     );

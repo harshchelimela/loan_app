@@ -11,8 +11,9 @@ import 'package:loan/screens/detail_screen.dart';
 
 class HouseholdScreen extends StatefulWidget {
   final String userId;
+  final String initialLanguage;
 
-  HouseholdScreen({super.key, required this.userId});
+  HouseholdScreen({super.key, required this.userId, this.initialLanguage = 'en'});
 
   @override
   _HouseholdScreenState createState() => _HouseholdScreenState();
@@ -26,13 +27,17 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
   List<FocusNode> focusNodes = [];
   AccessResponses accessResponses = AccessResponses();
   Map<int, String?> dropdownValues = {};
+  String currentLanguage = 'en'; // Default language
 
   @override
   void initState() {
     super.initState();
+    currentLanguage = widget.initialLanguage; // Set initial language from parameter
+
     final SurveyController surveyController = Get.put(SurveyController());
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await surveyController.checkStatusAndFetchQuestions('household_set_key');
+      await surveyController
+          .checkStatusAndFetchQuestions('household_set_key');
       await _loadSavedResponses();
       setState(() {
         _isLoading = false;
@@ -43,7 +48,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
       setState(() {
         focusNodes = List.generate(
           questions.length,
-              (index) => FocusNode(),
+          (index) => FocusNode(),
         );
       });
     });
@@ -91,25 +96,44 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
     if (_isLoading) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Household NonFinancial Details'),
+          title: Text(currentLanguage == 'en' ? 'Household NonFinancial Details' : 'घरेलू गैर-वित्तीय विवरण'),
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
-    }
+    } 
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Household NonFinancial Details',
-          style: TextStyle(fontSize: 15),
+        title: Text(
+          currentLanguage == 'en' ? 'Household NonFinancial Details' : 'घरेलू गैर-वित्तीय विवरण',
+          style: const TextStyle(fontSize: 15),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () async {
             // Navigate to the previous set or any screen
-            Get.to(() => BusinessNonfinancialSetone(userId: widget.userId));
+            Get.to(() => BusinessNonfinancialSetone(
+              userId: widget.userId,
+              initialLanguage: currentLanguage,
+            ));
           },
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  currentLanguage = currentLanguage == 'en' ? 'hi' : 'en';
+                });
+              },
+              child: Text(
+                currentLanguage == 'en' ? 'हिंदी' : 'English',
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Obx(() {
         if (surveyController.isLoading.value) {
@@ -117,7 +141,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
         }
 
         if (surveyController.questions.isEmpty) {
-          return const Center(child: Text('No survey questions available.'));
+          return Center(child: Text(currentLanguage == 'en' ? 'No survey questions available.' : 'कोई सर्वेक्षण प्रश्न उपलब्ध नहीं है।'));
         }
 
         return Form(
@@ -150,7 +174,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                     children: [
                       const SizedBox(height: 10),
                       Text(
-                        question['text'],
+                        question['text'][currentLanguage] ?? question['text'],
                         style: const TextStyle(
                           fontSize: 21,
                           fontWeight: FontWeight.bold,
@@ -159,13 +183,13 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                       const SizedBox(height: 20),
                       question['keyboardType'] == "dropdown" ? DropdownButtonFormField<String>(
                         value: dropdownValues[question['id']],
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          labelText: 'Your answer',
-                          prefixIcon: Icon(Icons.question_answer),
+                        decoration: InputDecoration(
+                          border: const OutlineInputBorder(),
+                          labelText: currentLanguage == 'en' ? 'Your answer' : 'आपका उत्तर',
+                          prefixIcon: const Icon(Icons.question_answer),
                         ),
-                        hint: const Text("Select an option"),
-                        items: (question['options'] as List<dynamic>)
+                        hint: Text(currentLanguage == 'en' ? 'Select an option' : 'एक विकल्प चुनें'),
+                        items: (question['options'][currentLanguage] as List<dynamic>)
                             .map((dynamic value) => value.toString())
                             .toList()
                             .map((String value) {
@@ -176,7 +200,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                         }).toList(),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please select an option';
+                            return currentLanguage == 'en' ? 'Please select an option' : 'कृपया एक विकल्प चुनें';
                           }
                           return null;
                         },
@@ -199,14 +223,14 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                             FocusScope.of(context).unfocus();
                           }
                         },
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          labelText: 'Your answer',
-                          prefixIcon: Icon(Icons.question_answer),
+                        decoration: InputDecoration(
+                          border: const OutlineInputBorder(),
+                          labelText: currentLanguage == 'en' ? 'Your answer' : 'आपका उत्तर',
+                          prefixIcon: const Icon(Icons.question_answer),
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please enter an answer';
+                            return currentLanguage == 'en' ? 'Please enter an answer' : 'कृपया उत्तर दर्ज करें';
                           }
                           return null;
                         },
@@ -226,7 +250,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
           onPressed: () async {
             if (_formKey.currentState?.validate() ?? false) {
               if (_isSaved) {
-                Get.snackbar('Info', 'Data has already been saved.');
+                Get.snackbar(
+                  currentLanguage == 'en' ? 'Info' : 'जानकारी',
+                  currentLanguage == 'en' ? 'Data has already been saved.' : 'डेटा पहले से ही सहेजा जा चुका है।'
+                );
                 return;
               }
 
@@ -240,7 +267,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                 if (answer.isNotEmpty) {
                   if(question['keyboardType'] != "dropdown"){
                     responses.add({
-                      'question': question['text'],
+                      'question': question['text'][currentLanguage] ?? question['text'],
                       'answer': answer,
                     });
                     accessResponses.checkAndInsertValues({
@@ -269,17 +296,30 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                   });
 
                   Get.snackbar(
-                      'Success', 'Survey responses saved successfully');
+                    currentLanguage == 'en' ? 'Success' : 'सफल',
+                    currentLanguage == 'en'
+                        ? 'Survey responses saved successfully'
+                        : 'सर्वेक्षण प्रतिक्रियाएं सफलतापूर्वक सहेजी गईं'
+                  );
                 } catch (e) {
-                  Get.snackbar('Error', 'Failed to save responses. Try again.');
+                  Get.snackbar(
+                    currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                    currentLanguage == 'en'
+                        ? 'Failed to save responses. Try again.'
+                        : 'प्रतिक्रियाएं सहेजने में विफल। पुनः प्रयास करें।'
+                  );
                 }
               } else {
                 UserCacheService().saveSurveyResponse(widget.userId, responses);
                 setState(() {
                   _isSaved = true;
                 });
-                Get.snackbar('Saved Locally',
-                    'No internet connection. Responses saved locally and will sync later.');
+                Get.snackbar(
+                  currentLanguage == 'en' ? 'Saved Locally' : 'स्थानीय रूप से सहेजा गया',
+                  currentLanguage == 'en'
+                      ? 'No internet connection. Responses saved locally and will sync later.'
+                      : 'कोई इंटरनेट कनेक्शन नहीं। प्रतिक्रियाएं स्थानीय रूप से सहेजी गईं और बाद में सिंक होंगी।'
+                );
               }
               print(accessResponses.allAnswers);
               List<Map<String,double>>  answers = accessResponses.allAnswers;
@@ -289,10 +329,15 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
 
 
             } else {
-              Get.snackbar('Error', 'Please answer all questions.');
+              Get.snackbar(
+                currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                currentLanguage == 'en'
+                    ? 'Please answer all questions.'
+                    : 'कृपया सभी प्रश्नों का उत्तर दें।'
+              );
             }
           },
-          child: const Text('Next'),
+          child: Text(currentLanguage == 'en' ? 'Next' : 'अगला'),
         ),
       ),
     );

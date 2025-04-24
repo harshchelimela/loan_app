@@ -10,8 +10,9 @@ import 'package:loan/screens/business_financial/business_financial_screen.dart';
 
 class PersonalDetailsScreen extends StatefulWidget {
   final String userId;
+  final String initialLanguage;
 
-  const PersonalDetailsScreen({super.key, required this.userId});
+  const PersonalDetailsScreen({super.key, required this.userId, this.initialLanguage = 'en'});
 
   @override
   State<PersonalDetailsScreen> createState() => _PersonalDetailsScreenState();
@@ -25,10 +26,12 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
   AccessResponses accessResponses = AccessResponses();
   bool isValidated = false;
   Map<int, String?> dropdownValues = {};
+  String currentLanguage = 'en'; // Default language
 
   @override
   void initState() {
     super.initState();
+    currentLanguage = widget.initialLanguage; // Set initial language from parameter
 
     // Register SurveyController
     final SurveyController surveyController = Get.put(SurveyController());
@@ -97,10 +100,38 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
     final SurveyController surveyController = Get.find<SurveyController>();
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'User Personal Details',
-          style: TextStyle(fontSize: 15),
+        title: Text(
+          currentLanguage == 'en' 
+            ? 'Personal Details (Basic Information)' 
+            : 'व्यक्तिगत विवरण (मूल जानकारी)',
+          style: const TextStyle(fontSize: 15),
         ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () async {
+            // Handle back press and question fetching logic
+            Get.to(() => BusinessFinancialScreen(
+              userId: widget.userId,
+              initialLanguage: currentLanguage,
+            ));
+          },
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  currentLanguage = currentLanguage == 'en' ? 'hi' : 'en';
+                });
+              },
+              child: Text(
+                currentLanguage == 'en' ? 'हिंदी' : 'English',
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Obx(() {
         if (surveyController.isLoading.value) {
@@ -144,7 +175,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                     children: [
                       const SizedBox(height: 10),
                       Text(
-                        question['text'],
+                        question['text'][currentLanguage] ?? question['text'],
                         style: const TextStyle(
                           fontSize: 21,
                           fontWeight: FontWeight.bold,
@@ -165,21 +196,24 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                                   answerControllers[index].text = pickedDate
                                       .toIso8601String()
                                       .split('T')[0];
-                                  // After setting, trigger form validation again if needed
                                   Form.of(context)?.validate();
                                 }
                               },
                               child: AbsorbPointer(
                                 child: TextFormField(
                                   controller: answerControllers[index],
-                                  decoration: const InputDecoration(
-                                    border: OutlineInputBorder(),
-                                    labelText: 'Select a date',
-                                    prefixIcon: Icon(Icons.calendar_today),
+                                  decoration: InputDecoration(
+                                    border: const OutlineInputBorder(),
+                                    labelText: currentLanguage == 'en' 
+                                        ? 'Select a date' 
+                                        : 'तारीख चुनें',
+                                    prefixIcon: const Icon(Icons.calendar_today),
                                   ),
                                   validator: (value) {
                                     if (value == null || value.isEmpty) {
-                                      return 'Please select a date';
+                                      return currentLanguage == 'en' 
+                                          ? 'Please select a date' 
+                                          : 'कृपया तारीख चुनें';
                                     }
                                     try {
                                       DateTime selected = DateTime.parse(value);
@@ -194,9 +228,13 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                                         age--;
                                       }
                                       if (age < 18)
-                                        return 'Age must be greater than 18';
+                                        return currentLanguage == 'en'
+                                            ? 'Age must be greater than 18'
+                                            : 'आयु 18 वर्ष से अधिक होनी चाहिए';
                                     } catch (e) {
-                                      return 'Invalid date format';
+                                      return currentLanguage == 'en'
+                                          ? 'Invalid date format'
+                                          : 'अमान्य तारीख प्रारूप';
                                     }
                                     return null;
                                   },
@@ -206,13 +244,17 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                           : question['keyboardType'] == "dropdown"
                               ? DropdownButtonFormField<String>(
                                   value: dropdownValues[question['id']],
-                                  decoration: const InputDecoration(
-                                    border: OutlineInputBorder(),
-                                    labelText: 'Your answer',
-                                    prefixIcon: Icon(Icons.question_answer),
+                                  decoration: InputDecoration(
+                                    border: const OutlineInputBorder(),
+                                    labelText: currentLanguage == 'en'
+                                        ? 'Your answer'
+                                        : 'आपका उत्तर',
+                                    prefixIcon: const Icon(Icons.question_answer),
                                   ),
-                                  hint: const Text("Select an option"),
-                                  items: (question['options'] as List<dynamic>)
+                                  hint: Text(currentLanguage == 'en'
+                                      ? "Select an option"
+                                      : "एक विकल्प चुनें"),
+                                  items: (question['options'][currentLanguage] as List<dynamic>)
                                       .map((dynamic value) => value.toString())
                                       .toList()
                                       .map((String value) {
@@ -223,7 +265,9 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                                   }).toList(),
                                   validator: (value) {
                                     if (value == null || value.isEmpty) {
-                                      return 'Please select an option';
+                                      return currentLanguage == 'en'
+                                          ? 'Please select an option'
+                                          : 'कृपया एक विकल्प चुनें';
                                     }
                                     return null;
                                   },
@@ -246,56 +290,63 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                                       final SurveyController surveyController =
                                           Get.find<SurveyController>();
 
-                                      // Required field check with snackbar
                                       if (value == null || value.isEmpty) {
                                         if (!surveyController
                                             .isSnackbarShown.value) {
                                           surveyController
                                               .isSnackbarShown.value = true;
-                                          Get.snackbar('Error',
-                                              'Please enter an answer');
+                                          Get.snackbar(
+                                            currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                                            currentLanguage == 'en' 
+                                                ? 'Please enter an answer' 
+                                                : 'कृपया उत्तर दर्ज करें'
+                                          );
                                         }
                                         return '';
                                       }
 
                                       String label = question['label'];
 
-                                      // Mobile number check (no snackbar)
                                       if (label == "User_Mobile_Number") {
                                         if (!RegExp(r'^\d{10}$')
                                             .hasMatch(value)) {
-                                          return "Mobile number must be exactly 10 digits";
+                                          return currentLanguage == 'en'
+                                              ? "Mobile number must be exactly 10 digits"
+                                              : "मोबाइल नंबर ठीक 10 अंकों का होना चाहिए";
                                         }
                                       }
 
-                                      // Aadhaar number check (no snackbar)
                                       if (label == "User_Aadhaar_Number") {
                                         if (!RegExp(r'^\d{12}$')
                                             .hasMatch(value)) {
-                                          return "Aadhaar number must be exactly 12 digits";
+                                          return currentLanguage == 'en'
+                                              ? "Aadhaar number must be exactly 12 digits"
+                                              : "आधार नंबर ठीक 12 अंकों का होना चाहिए";
                                         }
                                       }
 
                                       return null;
                                     } catch (e) {
-                                      return 'An unexpected error occurred';
+                                      return currentLanguage == 'en'
+                                          ? 'An unexpected error occurred'
+                                          : 'एक अप्रत्याशित त्रुटि हुई';
                                     }
-                                  }
-                                  ,
+                                  },
                                   onFieldSubmitted: (_) {
                                     if (index <
                                         surveyController.questions.length - 1) {
                                       FocusScope.of(context)
                                           .requestFocus(focusNodes[index + 1]);
                                     } else {
-                                      FocusScope.of(context)
-                                          .unfocus(); // Close the keyboard if it's the last field
+                                      FocusScope.of(context).unfocus();
                                     }
                                   },
-                                  decoration: const InputDecoration(
-                                    border: OutlineInputBorder(),
-                                    labelText: 'Your answer',
-                                    prefixIcon: Icon(Icons.question_answer),
+                                  decoration: InputDecoration(
+                                    border: const OutlineInputBorder(),
+                                    labelText: currentLanguage == 'en'
+                                        ? 'Your answer'
+                                        : 'आपका उत्तर',
+                                    prefixIcon: const Icon(Icons.question_answer),
                                   )),
                       const SizedBox(height: 20),
                     ],
@@ -312,7 +363,6 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
           onPressed: () async {
             surveyController.isSnackbarShown.value = false;
             if (_formKey.currentState?.validate() ?? false) {
-              // No need to check _isSaved when saving updated responses
               bool isConnected = await isConnectedToInternet();
 
               List<Map<String, dynamic>> responses = [];
@@ -322,7 +372,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
 
                 if (answer.isNotEmpty) {
                   responses.add({
-                    'question': question['text'],
+                    'question': question['text'][currentLanguage] ?? question['text'],
                     'answer': answer,
                   });
                 }
@@ -334,7 +384,6 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                       .collection('loan_users')
                       .doc(widget.userId);
 
-                  // Clear existing responses and save updated ones
                   var existingResponsesSnapshot =
                       await userDocRef.collection('survey_responses').get();
                   for (var doc in existingResponsesSnapshot.docs) {
@@ -354,30 +403,48 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                   });
 
                   Get.snackbar(
-                      'Success', 'Survey responses saved successfully');
+                    currentLanguage == 'en' ? 'Success' : 'सफल',
+                    currentLanguage == 'en' 
+                        ? 'Survey responses saved successfully'
+                        : 'सर्वेक्षण प्रतिक्रियाएं सफलतापूर्वक सहेजी गईं'
+                  );
                 } catch (e) {
-                  Get.snackbar('Error', 'Failed to save responses. Try again.');
+                  Get.snackbar(
+                    currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                    currentLanguage == 'en'
+                        ? 'Failed to save responses. Try again.'
+                        : 'प्रतिक्रियाएं सहेजने में विफल। पुनः प्रयास करें।'
+                  );
                 }
               } else {
                 UserCacheService().saveSurveyResponse(widget.userId, responses);
                 setState(() {
                   _isSaved = true;
                 });
-                Get.snackbar('Saved Locally',
-                    'No internet connection. Responses saved locally and will sync later.');
+                Get.snackbar(
+                  currentLanguage == 'en' ? 'Saved Locally' : 'स्थानीय रूप से सहेजा गया',
+                  currentLanguage == 'en'
+                      ? 'No internet connection. Responses saved locally and will sync later.'
+                      : 'कोई इंटरनेट कनेक्शन नहीं। प्रतिक्रियाएं स्थानीय रूप से सहेजी गईं और बाद में सिंक होंगी।'
+                );
               }
 
-              print('global');
-              print(accessResponses.allAnswers);
-
-              Get.to(() => BusinessFinancialScreen(userId: widget.userId));
+              Get.to(() => BusinessFinancialScreen(
+                userId: widget.userId,
+                initialLanguage: currentLanguage,
+              ));
             } else {
               if (!surveyController.isSnackbarShown.value) {
-                Get.snackbar('Error', 'Please answer all questions.');
+                Get.snackbar(
+                  currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                  currentLanguage == 'en'
+                      ? 'Please answer all questions.'
+                      : 'कृपया सभी प्रश्नों का उत्तर दें।'
+                );
               }
             }
           },
-          child: const Text('Next'),
+          child: Text(currentLanguage == 'en' ? 'Next' : 'अगला'),
         ),
       ),
     );
