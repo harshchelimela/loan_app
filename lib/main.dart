@@ -7,8 +7,8 @@ import 'package:loan/synchronization/users_data.dart';
 import 'firebase_options.dart';
 
 void main() async {
-  await GetStorage.init();
   WidgetsFlutterBinding.ensureInitialized();
+  await GetStorage.init();
   
   try {
     await Firebase.initializeApp(

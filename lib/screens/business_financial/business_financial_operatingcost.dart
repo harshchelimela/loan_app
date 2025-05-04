@@ -8,6 +8,7 @@ import 'package:loan/global_functions/access_responses.dart';
 import 'package:loan/global_functions/checkConnectivity.dart';
 import 'package:loan/screens/business_financial/business_financial_cogs_screen.dart';
 import 'package:loan/screens/business_financial/business_financial_personalcost.dart';
+import 'package:loan/screens/business_financial/business_financial_shopinfo_screen.dart';
 
 
 class BusinessFinancialOperatingcost extends StatefulWidget {
@@ -23,12 +24,17 @@ class BusinessFinancialOperatingcost extends StatefulWidget {
 class _BusinessFinancialOperatingcostState extends State<BusinessFinancialOperatingcost> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   List<TextEditingController> answerControllers = [];
+  Map<int, String?> dropdownValues = {};
   bool _isSaved = false; // Flag to track if data has been saved
   bool _isLoading = true; // Flag to track if data is being loaded
   List<FocusNode> focusNodes = [];
   AccessResponses accessResponses = AccessResponses();
   bool isValidated = false;
   String currentLanguage = 'en'; // Default language
+  
+  // Variables to track field visibility
+  bool _showRentField = false;
+  bool _showEmployeeSalaryField = false;
 
   @override
   void initState() {
@@ -77,22 +83,70 @@ class _BusinessFinancialOperatingcostState extends State<BusinessFinancialOperat
           answerControllers = List.generate(surveyController.questions.length, (index) {
             var question = surveyController.questions[index];
             var controller = TextEditingController(
-              text: savedAnswers[question['text'][currentLanguage] ?? question['text']] ?? ''
+              text: savedAnswers[question['text']['en']] ?? ''
             );
 
             controller.addListener(() {
               setState(() {
                 _isSaved = false;
+                
+                // Check if employee fields need to be updated
+                _updateFieldVisibility();
               });
             });
 
             return controller;
           });
+          
+          // Load saved dropdown values
+          for (int i = 0; i < surveyController.questions.length; i++) {
+            var question = surveyController.questions[i];
+            if (question['keyboardType'] == 'dropdown' && savedAnswers.containsKey(question['text']['en'])) {
+              dropdownValues[question['id']] = savedAnswers[question['text']['en']];
+            }
+          }
+          
+          // Initialize field visibility based on loaded values
+          _updateFieldVisibility();
         });
       }
     } catch (e) {
       debugPrint("Error loading saved responses: $e");
     }
+  }
+
+  void _updateFieldVisibility() {
+    final SurveyController surveyController = Get.find<SurveyController>();
+    
+    // Check shop ownership type for rent field visibility
+    int ownershipIndex = surveyController.questions.indexWhere((q) => q['label'] == "Shop_Ownership");
+    if (ownershipIndex >= 0) {
+      String? ownershipValue = dropdownValues[surveyController.questions[ownershipIndex]['id']];
+      // Show rent field only if "Rented" is selected
+      _showRentField = ownershipValue == (currentLanguage == 'en' 
+          ? "Rented" 
+          : "किराये पर लिया हुआ");
+    }
+    
+    // Check employee count for salary field visibility
+    int fullTimeIndex = surveyController.questions.indexWhere((q) => q['label'] == "Full_Time_Employees");
+    int partTimeIndex = surveyController.questions.indexWhere((q) => q['label'] == "Part_Time_Employees");
+    
+    double fullTimeCount = 0;
+    double partTimeCount = 0;
+    
+    if (fullTimeIndex >= 0 && fullTimeIndex < answerControllers.length && 
+        answerControllers[fullTimeIndex].text.isNotEmpty) {
+      fullTimeCount = double.tryParse(answerControllers[fullTimeIndex].text) ?? 0;
+    }
+    
+    if (partTimeIndex >= 0 && partTimeIndex < answerControllers.length && 
+        answerControllers[partTimeIndex].text.isNotEmpty) {
+      partTimeCount = double.tryParse(answerControllers[partTimeIndex].text) ?? 0;
+    }
+    
+    // Only show salary field if there are employees
+    _showEmployeeSalaryField = fullTimeCount > 0 || partTimeCount > 0;
   }
 
   @override
@@ -166,8 +220,20 @@ class _BusinessFinancialOperatingcostState extends State<BusinessFinancialOperat
                 case 'boolean':
                   keyboardType = TextInputType.text;
                   break;
+                case 'dropdown':
+                  keyboardType = TextInputType.none;
+                  break;
                 default:
                   keyboardType = TextInputType.text;
+              }
+
+              // Check if this question should be hidden
+              if (question['label'] == "Shop_Rental_Cost" && !_showRentField) {
+                return SizedBox(); // Hide rent field if not rented
+              }
+              
+              if (question['label'] == "Shop_Employee_Salary" && !_showEmployeeSalaryField) {
+                return SizedBox(); // Hide salary field if no employees
               }
 
               return Card(
@@ -180,80 +246,110 @@ class _BusinessFinancialOperatingcostState extends State<BusinessFinancialOperat
                     children: [
                       const SizedBox(height: 10),
                       Text(
-                        question['text'][currentLanguage] ?? question['text'],
+                        question['text'][currentLanguage] ?? question['text']['en'],
                         style: const TextStyle(
                           fontSize: 21,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 20),
-                      TextFormField(
-                        controller: answerControllers[index],
-                        keyboardType: keyboardType,
-                        textInputAction: index == surveyController.questions.length - 1
-                            ? TextInputAction.done
-                            : TextInputAction.next,
-                        focusNode: focusNodes[index],
-                        onFieldSubmitted: (_) {
-                          if (index < surveyController.questions.length - 1) {
-                            FocusScope.of(context).requestFocus(focusNodes[index + 1]);
-                          } else {
-                            FocusScope.of(context).unfocus(); // Close the keyboard if it's the last field
-                          }
-                        },
-                        decoration: InputDecoration(
-                          border: const OutlineInputBorder(),
-                          labelText: currentLanguage == 'en' ? 'Your answer' : 'आपका उत्तर',
-                          prefixIcon: const Icon(Icons.question_answer),
-                        ),
-                        validator: (value) {
-                          final SurveyController surveyController = Get.find<SurveyController>();
-
-                          try {
-                            if (value == null || value.isEmpty) {
-                              return currentLanguage == 'en' ? 'Please enter an answer' : 'कृपया उत्तर दर्ज करें';
-                            }
-
-                            if (index != answerControllers.length - 1) {
-                              double individualSum = 0;
-                              for (int i = 1; i < answerControllers.length - 1; i++) {
-                                individualSum += double.parse(answerControllers[i].text);
+                      question['keyboardType'] == "dropdown"
+                        ? DropdownButtonFormField<String>(
+                            value: dropdownValues[question['id']],
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              border: const OutlineInputBorder(),
+                              labelText: currentLanguage == 'en'
+                                  ? 'Your answer'
+                                  : 'आपका उत्तर',
+                              prefixIcon: const Icon(Icons.question_answer),
+                            ),
+                            hint: Text(currentLanguage == 'en'
+                                ? "Select an option"
+                                : "एक विकल्प चुनें"),
+                            items: (question['options'][currentLanguage] as List<dynamic>)
+                                .map((dynamic value) => value.toString())
+                                .toList()
+                                .map((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(
+                                  value,
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              );
+                            }).toList(),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return currentLanguage == 'en'
+                                    ? 'Please select an option'
+                                    : 'कृपया एक विकल्प चुनें';
                               }
-                              final double lowerLimit = double.parse(answerControllers[0].text) * 0.85;
-                              final double upperLimit = double.parse(answerControllers[0].text) * 1.15;
+                              return null;
+                            },
+                            onChanged: (String? newValue) {
+                              setState(() {
+                                dropdownValues[question['id']] = newValue;
+                                answerControllers[index].text = newValue ?? '';
+                                _updateFieldVisibility();
+                              });
+                            },
+                          )
+                        : TextFormField(
+                            controller: answerControllers[index],
+                            keyboardType: keyboardType,
+                            textInputAction: index == surveyController.questions.length - 1
+                                ? TextInputAction.done
+                                : TextInputAction.next,
+                            focusNode: focusNodes[index],
+                            onFieldSubmitted: (_) {
+                              if (index < surveyController.questions.length - 1) {
+                                FocusScope.of(context).requestFocus(focusNodes[index + 1]);
+                              } else {
+                                FocusScope.of(context).unfocus(); // Close the keyboard if it's the last field
+                              }
+                            },
+                            decoration: InputDecoration(
+                              border: const OutlineInputBorder(),
+                              labelText: currentLanguage == 'en' ? 'Your answer' : 'आपका उत्तर',
+                              prefixIcon: const Icon(Icons.question_answer),
+                            ),
+                            validator: (value) {
+                              final SurveyController surveyController = Get.find<SurveyController>();
 
-                              if (individualSum < lowerLimit || individualSum > upperLimit) {
+                              try {
+                                // Skip validation for hidden fields
+                                if ((question['label'] == "Shop_Rental_Cost" && !_showRentField) ||
+                                    (question['label'] == "Shop_Employee_Salary" && !_showEmployeeSalaryField)) {
+                                  return null;
+                                }
+                                
+                                if (value == null || value.isEmpty) {
+                                  return currentLanguage == 'en' ? 'Please enter an answer' : 'कृपया उत्तर दर्ज करें';
+                                }
+
+                                return null;
+                              } catch (e) {
                                 if (!surveyController.isOperatingScreenSnackbarShown.value) {
                                   surveyController.isOperatingScreenSnackbarShown.value = true;
                                   Get.snackbar(
                                     currentLanguage == 'en' ? 'Error' : 'त्रुटि',
-                                    currentLanguage == 'en' ? 'Total exceeds expected cost range' : 'कुल अपेक्षित लागत सीमा से अधिक है'
+                                    currentLanguage == 'en'
+                                        ? 'An error occurred: ${e.toString()}'
+                                        : 'एक त्रुटि हुई: ${e.toString()}'
                                   );
                                 }
-                                return "";
+                                return '';
                               }
-                            }
-
-                            return null;
-                          } catch (e) {
-                            if (!surveyController.isOperatingScreenSnackbarShown.value) {
-                              surveyController.isOperatingScreenSnackbarShown.value = true;
-                              Get.snackbar(
-                                currentLanguage == 'en' ? 'Error' : 'त्रुटि',
-                                currentLanguage == 'en'
-                                    ? 'An error occurred: ${e.toString()}'
-                                    : 'एक त्रुटि हुई: ${e.toString()}'
-                              );
-                            }
-                            return '';
-                          }
-                        },
-                        onChanged: (value) {
-                          setState(() {
-                            _isSaved = false; // Reset the save flag on any edit
-                          });
-                        },
-                      ),
+                            },
+                            onChanged: (value) {
+                              setState(() {
+                                _isSaved = false; // Reset the save flag on any edit
+                                _updateFieldVisibility(); // Update visibility when values change
+                              });
+                            },
+                          ),
                       const SizedBox(height: 20),
                     ],
                   ),
@@ -286,12 +382,21 @@ class _BusinessFinancialOperatingcostState extends State<BusinessFinancialOperat
 
                 if (answer.isNotEmpty) {
                   responses.add({
-                    'question': question['text'][currentLanguage] ?? question['text'],
+                    'question': question['text']['en'],
                     'answer': answer,
                   });
-                  accessResponses.checkAndInsertValues({
-                    question['label'] : double.parse(answer),
-                  });
+                  
+                  // Only add numeric values to accessResponses
+                  if (question['keyboardType'] == 'number') {
+                    try {
+                      double numericValue = double.parse(answer);
+                      accessResponses.checkAndInsertValues({
+                        question['label']: numericValue,
+                      });
+                    } catch (e) {
+                      print("Could not parse numeric value for ${question['label']}: $e");
+                    }
+                  }
                 }
               }
 
@@ -344,7 +449,7 @@ class _BusinessFinancialOperatingcostState extends State<BusinessFinancialOperat
               print('global');
               print(accessResponses.allAnswers);
               // Navigate to the next screen
-              Get.to(() => BusinessFinancialPersonalcost(
+              Get.to(() => BusinessFinancialShopInfoScreen(
                 userId: widget.userId,
                 initialLanguage: currentLanguage,
               ));

@@ -7,6 +7,7 @@ import 'package:loan/global_functions/access_responses.dart';
 import 'package:loan/global_functions/checkConnectivity.dart';
 import 'package:loan/screens/business_financial/business_financial_cogs_screen.dart';
 import 'package:loan/screens/business_financial/business_financial_screen.dart';
+import 'package:loan/screens/business_loan/business_loan_screen.dart';
 
 class PersonalDetailsScreen extends StatefulWidget {
   final String userId;
@@ -244,6 +245,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                           : question['keyboardType'] == "dropdown"
                               ? DropdownButtonFormField<String>(
                                   value: dropdownValues[question['id']],
+                                  isExpanded: true,
                                   decoration: InputDecoration(
                                     border: const OutlineInputBorder(),
                                     labelText: currentLanguage == 'en'
@@ -260,7 +262,11 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                                       .map((String value) {
                                     return DropdownMenuItem<String>(
                                       value: value,
-                                      child: Text(value),
+                                      child: Text(
+                                        value,
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
                                     );
                                   }).toList(),
                                   validator: (value) {
@@ -372,7 +378,8 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
 
                 if (answer.isNotEmpty) {
                   responses.add({
-                    'question': question['text'][currentLanguage] ?? question['text'],
+                    // 'question': question['text'][currentLanguage] ?? question['text'],
+                    'question': question['text']['en'],
                     'answer': answer,
                   });
                 }
@@ -429,7 +436,7 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
                 );
               }
 
-              Get.to(() => BusinessFinancialScreen(
+              Get.to(() => BusinessLoanScreen(
                 userId: widget.userId,
                 initialLanguage: currentLanguage,
               ));

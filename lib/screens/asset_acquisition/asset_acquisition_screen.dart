@@ -5,42 +5,39 @@ import 'package:loan/cache/users_response.dart';
 import 'package:loan/controller/allPage_controller.dart';
 import 'package:loan/global_functions/access_responses.dart';
 import 'package:loan/global_functions/checkConnectivity.dart';
-import 'package:loan/screens/asset_acquisition/asset_acquisition_screen.dart';
 import 'package:loan/screens/detail_screen.dart';
-import 'package:loan/screens/business_financial/business_financial_personalcost.dart';
+import 'package:loan/screens/household_nonfinancial/household_screen.dart';
+import 'package:loan/screens/application_submission/application_submission_screen.dart';
 
-
-class HouseholdScreen extends StatefulWidget {
+class AssetAcquisitionScreen extends StatefulWidget {
   final String userId;
   final String initialLanguage;
 
-  HouseholdScreen({super.key, required this.userId, this.initialLanguage = 'en'});
+  AssetAcquisitionScreen({super.key, required this.userId, this.initialLanguage = 'en'});
 
   @override
-  _HouseholdScreenState createState() => _HouseholdScreenState();
+  _AssetAcquisitionScreenState createState() => _AssetAcquisitionScreenState();
 }
 
-class _HouseholdScreenState extends State<HouseholdScreen> {
+class _AssetAcquisitionScreenState extends State<AssetAcquisitionScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   List<TextEditingController> answerControllers = [];
-  bool _isSaved = false; // Flag to track if data has been saved
-  bool _isLoading = true; // Track the loading state for the form
+  bool _isSaved = false;
+  bool _isLoading = true;
   List<FocusNode> focusNodes = [];
   AccessResponses accessResponses = AccessResponses();
-  Map<int, String?> dropdownValues = {};
   Map<int, List<String>> checkboxSelections = {};
   Map<int, String> _otherSpecifications = {};
-  String currentLanguage = 'en'; // Default language
-
+  String currentLanguage = 'en';
+  
   @override
   void initState() {
     super.initState();
-    currentLanguage = widget.initialLanguage; // Set initial language from parameter
-
+    currentLanguage = widget.initialLanguage;
+    
     final SurveyController surveyController = Get.put(SurveyController());
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await surveyController
-          .checkStatusAndFetchQuestions('household_set_key');
+      await surveyController.checkStatusAndFetchQuestions('asset_acquisition_set_key');
       await _loadSavedResponses();
       setState(() {
         _isLoading = false;
@@ -55,7 +52,6 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
         );
       });
     });
-
   }
 
   Future<void> _loadSavedResponses() async {
@@ -66,6 +62,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
     final snapshot = await userDocRef.collection('survey_responses').get();
 
     Map<String, dynamic> savedAnswers = {};
+    
     if (snapshot.docs.isNotEmpty) {
       for (var doc in snapshot.docs) {
         if (doc['answer'] is List) {
@@ -82,12 +79,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
           surveyController.questions.length,
           (index) {
             var question = surveyController.questions[index];
-            // Skip controllers for checkbox questions, only use for text/numeric
-            if (question['keyboardType'] == 'checkbox') {
-              return TextEditingController();
-            }
+            // For checkbox type questions, we'll use the controller for "Other" text
             var controller = TextEditingController(
-                text: savedAnswers[question['text']['en']] ?? '');
+                text: question['keyboardType'] == 'number' ? 
+                      savedAnswers[question['text']['en']] ?? '' : '');
             controller.addListener(() {
               setState(() {
                 _isSaved = false;
@@ -141,23 +136,22 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
     if (_isLoading) {
       return Scaffold(
         appBar: AppBar(
-          title: Text(currentLanguage == 'en' ? 'Household Details' : 'घरेलू विवरण'),
+          title: Text(currentLanguage == 'en' ? 'Asset Acquisition' : 'संपत्ति अधिग्रहण'),
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
-    } 
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          currentLanguage == 'en' ? 'Household Details' : 'घरेलू विवरण',
+          currentLanguage == 'en' ? 'Asset Acquisition' : 'संपत्ति अधिग्रहण',
           style: const TextStyle(fontSize: 15),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () async {
-            // Navigate to the previous screen - Personal Financial Cost
-            Get.to(() => BusinessFinancialPersonalcost(
+            Get.to(() => HouseholdScreen(
               userId: widget.userId,
               initialLanguage: currentLanguage,
             ));
@@ -199,10 +193,8 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
               
               if (question['keyboardType'] == 'checkbox') {
                 return _buildCheckboxQuestion(question);
-              } else if (question['keyboardType'] == "dropdown") {
-                return _buildDropdownQuestion(question);
               } else {
-                return _buildTextOrNumberQuestion(question, index);
+                return _buildNumericQuestion(question, index);
               }
             },
           ),
@@ -251,14 +243,6 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                       'answer': finalOptions,
                     });
                   }
-                } else if (question['keyboardType'] == "dropdown") {
-                  String? answer = dropdownValues[question['id']];
-                  if (answer != null && answer.isNotEmpty) {
-                    responses.add({
-                      'question': question['text']['en'],
-                      'answer': answer,
-                    });
-                  }
                 } else {
                   String answer = answerControllers[i].text;
                   if (answer.isNotEmpty) {
@@ -268,11 +252,9 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                     });
                     
                     try {
-                      if(question['keyboardType'] == 'number') {
-                        accessResponses.checkAndInsertValues({
-                          question['label'] : double.parse(answer),
-                        });
-                      }
+                      accessResponses.checkAndInsertValues({
+                        question['label']: double.parse(answer),
+                      });
                     } catch (e) {
                       print('Error parsing value: $e');
                     }
@@ -324,15 +306,15 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                       : 'कोई इंटरनेट कनेक्शन नहीं। प्रतिक्रियाएं स्थानीय रूप से सहेजी गईं और बाद में सिंक होंगी।'
                 );
               }
+              
               print(accessResponses.allAnswers);
-              List<Map<String,double>>  answers = accessResponses.allAnswers;
+              List<Map<String, double>> answers = accessResponses.allAnswers;
 
-              // Navigate to the Asset Acquisition screen
-              Get.to(() => AssetAcquisitionScreen(
-                userId: widget.userId,
-                initialLanguage: currentLanguage,
+              // Navigate to the application submission screen
+              Get.to(() => ApplicationSubmissionScreen(
+                userId: widget.userId, 
+                initialLanguage: currentLanguage
               ));
-
             } else {
               Get.snackbar(
                 currentLanguage == 'en' ? 'Error' : 'त्रुटि',
@@ -347,7 +329,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
       ),
     );
   }
-  
+
   Widget _buildCheckboxQuestion(Map<String, dynamic> question) {
     // Initialize this question's selections if not already done
     if (!checkboxSelections.containsKey(question['id'])) {
@@ -363,6 +345,16 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
     List<String> englishOptions = (question['options']['en'] as List<dynamic>)
         .map((dynamic value) => value.toString())
         .toList();
+
+    // Use a map to store other text for this question if not already initialized
+    if (!_otherSpecifications.containsKey(question['id'])) {
+      _otherSpecifications[question['id']] = '';
+    }
+    
+    // Create a fresh controller for this question with the current text
+    final TextEditingController otherController = TextEditingController();
+    // Set the text after controller creation to ensure proper cursor position
+    otherController.text = _otherSpecifications[question['id']] ?? '';
     
     return Card(
       elevation: 4,
@@ -404,6 +396,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                           // Clear the "other" text if deselected
                           if (isOtherOption) {
                             _otherSpecifications[question['id']] = '';
+                            otherController.clear();
                           }
                         }
                         _isSaved = false;
@@ -434,8 +427,8 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
       ),
     );
   }
-  
-  Widget _buildDropdownQuestion(Map<String, dynamic> question) {
+
+  Widget _buildNumericQuestion(Map<String, dynamic> question, int index) {
     return Card(
       elevation: 4,
       margin: const EdgeInsets.symmetric(vertical: 10),
@@ -453,84 +446,15 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            DropdownButtonFormField<String>(
-              value: dropdownValues[question['id']],
-              decoration: InputDecoration(
-                border: const OutlineInputBorder(),
-                labelText: currentLanguage == 'en' ? 'Your answer' : 'आपका उत्तर',
-                prefixIcon: const Icon(Icons.question_answer),
-              ),
-              hint: Text(currentLanguage == 'en' ? 'Select an option' : 'एक विकल्प चुनें'),
-              items: (question['options'][currentLanguage] as List<dynamic>)
-                  .map((dynamic value) => value.toString())
-                  .toList()
-                  .map((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return currentLanguage == 'en' ? 'Please select an option' : 'कृपया एक विकल्प चुनें';
-                }
-                return null;
-              },
-              onChanged: (String? newValue) {
-                setState(() {
-                  dropdownValues[question['id']] = newValue;
-                  _isSaved = false;
-                });
-              },
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildTextOrNumberQuestion(Map<String, dynamic> question, int index) {
-    final SurveyController surveyController = Get.find<SurveyController>();
-    TextInputType keyboardType;
-
-    switch (question['keyboardType']) {
-      case 'number':
-        keyboardType = TextInputType.number;
-        break;
-      case 'boolean':
-        keyboardType = TextInputType.text;
-        break;
-      default:
-        keyboardType = TextInputType.text;
-    }
-
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.symmetric(vertical: 10),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 10),
-            Text(
-              question['text'][currentLanguage] ?? question['text']['en'],
-              style: const TextStyle(
-                fontSize: 21,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 20),
             TextFormField(
               controller: answerControllers[index],
-              keyboardType: keyboardType,
-              textInputAction: index == surveyController.questions.length - 1
+              keyboardType: TextInputType.number,
+              textInputAction: index == answerControllers.length - 1
                   ? TextInputAction.done
                   : TextInputAction.next,
               focusNode: focusNodes[index],
               onFieldSubmitted: (_) {
-                if (index < surveyController.questions.length - 1) {
+                if (index < focusNodes.length - 1) {
                   FocusScope.of(context).requestFocus(focusNodes[index + 1]);
                 } else {
                   FocusScope.of(context).unfocus();
@@ -545,44 +469,6 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                 if (value == null || value.isEmpty) {
                   return currentLanguage == 'en' ? 'Please enter an answer' : 'कृपया उत्तर दर्ज करें';
                 }
-                
-                // Add specific validation for household questions
-                if (question['label'] == 'Family_Size') {
-                  // Validate family size is reasonable
-                  int? familySize = int.tryParse(value);
-                  if (familySize != null) {
-                    if (familySize <= 0) {
-                      return currentLanguage == 'en' 
-                          ? 'Family size must be greater than 0' 
-                          : 'परिवार का आकार 0 से अधिक होना चाहिए';
-                    }
-                    if (familySize > 20) {
-                      return currentLanguage == 'en' 
-                          ? 'Please verify this large family size' 
-                          : 'कृपया इस बड़े परिवार के आकार को सत्यापित करें';
-                    }
-                  }
-                }
-                
-                if (question['label'] == 'Number_of_Dependents') {
-                  // Validate dependents against family size
-                  int? dependents = int.tryParse(value);
-                  int familySize = 0;
-                  
-                  // Find family size value
-                  int familySizeIndex = surveyController.questions.indexWhere((q) => q['label'] == 'Family_Size');
-                  if (familySizeIndex >= 0 && familySizeIndex < answerControllers.length && 
-                      answerControllers[familySizeIndex].text.isNotEmpty) {
-                    familySize = int.tryParse(answerControllers[familySizeIndex].text) ?? 0;
-                  }
-                  
-                  if (dependents != null && familySize > 0 && dependents > familySize) {
-                    return currentLanguage == 'en'
-                        ? 'Dependents cannot exceed family size'
-                        : 'आश्रित परिवार के आकार से अधिक नहीं हो सकते';
-                  }
-                }
-                
                 return null;
               },
             ),
@@ -603,4 +489,4 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
     }
     super.dispose();
   }
-}
+} 

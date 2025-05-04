@@ -7,24 +7,23 @@ import 'package:loan/controller/allPage_controller.dart';
 import 'package:loan/global_functions/access_responses.dart';
 import 'package:loan/global_functions/checkConnectivity.dart';
 import 'package:loan/screens/business_financial/business_financial_operatingcost.dart';
-import 'package:loan/screens/business_financial/business_financial_screen.dart';
+import 'package:loan/screens/business_financial/business_financial_personalcost.dart';
 
-
-class BusinessFinancialCogsScreen extends StatefulWidget {
+class BusinessFinancialShopInfoScreen extends StatefulWidget {
   final String userId;
   final String initialLanguage;
 
-  BusinessFinancialCogsScreen({super.key, required this.userId, this.initialLanguage = 'en'});
+  BusinessFinancialShopInfoScreen({super.key, required this.userId, this.initialLanguage = 'en'});
 
   @override
-  _BusinessFinancialCogsScreenState createState() => _BusinessFinancialCogsScreenState();
+  _BusinessFinancialShopInfoScreenState createState() => _BusinessFinancialShopInfoScreenState();
 }
 
-class _BusinessFinancialCogsScreenState extends State<BusinessFinancialCogsScreen> {
+class _BusinessFinancialShopInfoScreenState extends State<BusinessFinancialShopInfoScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   List<TextEditingController> answerControllers = [];
-  bool _isSaved = false; // Flag to track if data has been saved
-  bool _isLoading = true; // Flag to track if data is being loaded
+  bool _isSaved = false;
+  bool _isLoading = true;
   List<FocusNode> focusNodes = [];
   AccessResponses accessResponses = AccessResponses();
   bool isValidated = false;
@@ -41,7 +40,7 @@ class _BusinessFinancialCogsScreenState extends State<BusinessFinancialCogsScree
     // Fetch questions and load saved responses
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       surveyController.questions.clear();
-      await surveyController.checkStatusAndFetchQuestions('business_financial_questions_cogs');
+      await surveyController.checkStatusAndFetchQuestions('business_shop_information_questions');
       await _loadSavedResponses(); // Load responses after fetching questions
       setState(() {
         _isLoading = false;
@@ -77,21 +76,55 @@ class _BusinessFinancialCogsScreenState extends State<BusinessFinancialCogsScree
           answerControllers = List.generate(surveyController.questions.length, (index) {
             var question = surveyController.questions[index];
             var controller = TextEditingController(
-              text: savedAnswers[question['text'][currentLanguage] ?? question['text']] ?? ''
+              text: savedAnswers[question['text']['en']] ?? ''
             );
 
             controller.addListener(() {
               setState(() {
                 _isSaved = false;
+
+                // Auto-calculate total inventory value
+                _calculateTotalInventory();
               });
             });
 
             return controller;
           });
+          
+          // Initial calculation of total inventory
+          _calculateTotalInventory();
         });
       }
     } catch (e) {
       debugPrint("Error loading saved responses: $e");
+    }
+  }
+
+  void _calculateTotalInventory() {
+    final SurveyController surveyController = Get.find<SurveyController>();
+    
+    // Find indices of inventory fields
+    int shopInventoryIndex = surveyController.questions.indexWhere((q) => q['label'] == "Shop_Inventory_Value");
+    int warehouseInventoryIndex = surveyController.questions.indexWhere((q) => q['label'] == "Warehouse_Inventory_Value");
+    int totalInventoryIndex = surveyController.questions.indexWhere((q) => q['label'] == "Total_Inventory_Value");
+    
+    // Only proceed if all indices are valid
+    if (shopInventoryIndex >= 0 && warehouseInventoryIndex >= 0 && totalInventoryIndex >= 0 &&
+        shopInventoryIndex < answerControllers.length &&
+        warehouseInventoryIndex < answerControllers.length &&
+        totalInventoryIndex < answerControllers.length) {
+      
+      // Parse shop and warehouse inventory values
+      double shopValue = double.tryParse(answerControllers[shopInventoryIndex].text) ?? 0.0;
+      double warehouseValue = double.tryParse(answerControllers[warehouseInventoryIndex].text) ?? 0.0;
+      
+      // Calculate and set total value
+      double totalValue = shopValue + warehouseValue;
+      
+      // Update the total inventory controller if not already set to this value
+      if (double.tryParse(answerControllers[totalInventoryIndex].text) != totalValue) {
+        answerControllers[totalInventoryIndex].text = totalValue.toString();
+      }
     }
   }
 
@@ -102,7 +135,7 @@ class _BusinessFinancialCogsScreenState extends State<BusinessFinancialCogsScree
     if (_isLoading) {
       return Scaffold(
         appBar: AppBar(
-          title: Text(currentLanguage == 'en' ? 'Purchases cost of goods sold' : 'माल की खरीद लागत'),
+          title: Text(currentLanguage == 'en' ? 'Shop Information' : 'दुकान की जानकारी'),
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -111,14 +144,14 @@ class _BusinessFinancialCogsScreenState extends State<BusinessFinancialCogsScree
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          currentLanguage == 'en' ? 'Purchases cost of goods sold' : 'माल की खरीद लागत',
+          currentLanguage == 'en' ? 'Shop Information' : 'दुकान की जानकारी',
           style: const TextStyle(fontSize: 15),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () async {
-            // Handle back press and question fetching logic
-            Get.to(() => BusinessFinancialScreen(
+            // Navigate back to operating cost screen
+            Get.to(() => BusinessFinancialOperatingcost(
               userId: widget.userId,
               initialLanguage: currentLanguage,
             ));
@@ -163,12 +196,12 @@ class _BusinessFinancialCogsScreenState extends State<BusinessFinancialCogsScree
                 case 'number':
                   keyboardType = TextInputType.number;
                   break;
-                case 'boolean':
-                  keyboardType = TextInputType.text;
-                  break;
                 default:
                   keyboardType = TextInputType.text;
               }
+
+              // Determine if field should be read-only (like total inventory)
+              bool isReadOnly = question['label'] == "Total_Inventory_Value";
 
               return Card(
                 elevation: 4,
@@ -180,7 +213,7 @@ class _BusinessFinancialCogsScreenState extends State<BusinessFinancialCogsScree
                     children: [
                       const SizedBox(height: 10),
                       Text(
-                        question['text'][currentLanguage] ?? question['text'],
+                        question['text'][currentLanguage] ?? question['text']['en'],
                         style: const TextStyle(
                           fontSize: 21,
                           fontWeight: FontWeight.bold,
@@ -190,6 +223,7 @@ class _BusinessFinancialCogsScreenState extends State<BusinessFinancialCogsScree
                       TextFormField(
                         controller: answerControllers[index],
                         keyboardType: keyboardType,
+                        readOnly: isReadOnly,
                         textInputAction: index == surveyController.questions.length - 1
                             ? TextInputAction.done
                             : TextInputAction.next,
@@ -205,81 +239,72 @@ class _BusinessFinancialCogsScreenState extends State<BusinessFinancialCogsScree
                           border: const OutlineInputBorder(),
                           labelText: currentLanguage == 'en' ? 'Your answer' : 'आपका उत्तर',
                           prefixIcon: const Icon(Icons.question_answer),
+                          filled: isReadOnly,
+                          fillColor: isReadOnly ? Colors.grey.shade200 : null,
                         ),
-                          validator: (value) {
-                            final SurveyController surveyController = Get.find<SurveyController>();
+                        validator: (value) {
+                          final SurveyController surveyController = Get.find<SurveyController>();
 
-                            try {
-                              if (value == null || value.isEmpty) {
-                                if (!surveyController.isCOGSScreenSnackbarShown.value) {
-                                  surveyController.isCOGSScreenSnackbarShown.value = true;
-                                  Get.snackbar(
-                                    currentLanguage == 'en' ? 'Error' : 'त्रुटि',
-                                    currentLanguage == 'en' ? 'Please enter an answer' : 'कृपया उत्तर दर्ज करें'
-                                  );
-                                }
-                                return '';
-                              }
-
-                              // Find index of fields, using -1 if not found (which we'll handle)
-                              int totalPurchasesIndex = surveyController.questions.indexWhere((q) => q['label'] == "Total_Monthly_Purchases");
-                              int weeklyPurchasesIndex = surveyController.questions.indexWhere((q) => q['label'] == "Average_Weekly_Purchases");
-                              int dailyPurchasesIndex = surveyController.questions.indexWhere((q) => q['label'] == "Daily_Purchases");
-                              
-                              // Safely get values - only if the index is valid
-                              double totalPurchase = totalPurchasesIndex >= 0 && totalPurchasesIndex < answerControllers.length ? 
-                                  double.tryParse(answerControllers[totalPurchasesIndex].text) ?? 0.0 : 0.0;
-                              
-                              double weeklyPurchases = weeklyPurchasesIndex >= 0 && weeklyPurchasesIndex < answerControllers.length ? 
-                                  double.tryParse(answerControllers[weeklyPurchasesIndex].text) ?? 0.0 : 0.0;
-                              
-                              double dailyPurchases = dailyPurchasesIndex >= 0 && dailyPurchasesIndex < answerControllers.length ? 
-                                  double.tryParse(answerControllers[dailyPurchasesIndex].text) ?? 0.0 : 0.0;
-
-                              String errorMessage = '';
-
-                              if (totalPurchase < weeklyPurchases) {
-                                errorMessage = currentLanguage == 'en'
-                                    ? "Total Monthly Purchases should not be less than weekly purchases."
-                                    : "कुल मासिक खरीद साप्ताहिक खरीद से कम नहीं होनी चाहिए।";
-                              } else if (totalPurchase < dailyPurchases) {
-                                errorMessage = currentLanguage == 'en'
-                                    ? "Total Monthly Purchases should not be less than daily purchases."
-                                    : "कुल मासिक खरीद दैनिक खरीद से कम नहीं होनी चाहिए।";
-                              } else if (weeklyPurchases < dailyPurchases) {
-                                errorMessage = currentLanguage == 'en'
-                                    ? "Weekly Purchases should not be less than Daily purchases."
-                                    : "साप्ताहिक खरीद दैनिक खरीद से कम नहीं होनी चाहिए।";
-                              }
-
-                              if (errorMessage.isNotEmpty) {
-                                if (!surveyController.isCOGSScreenSnackbarShown.value) {
-                                  surveyController.isCOGSScreenSnackbarShown.value = true;
-                                  Get.snackbar(
-                                    currentLanguage == 'en' ? 'Error' : 'त्रुटि',
-                                    errorMessage
-                                  );
-                                }
-                                return '';
-                              }
-
-                              return null;
-                            } catch (e) {
-                              if (!surveyController.isCOGSScreenSnackbarShown.value) {
-                                surveyController.isCOGSScreenSnackbarShown.value = true;
+                          try {
+                            if (value == null || value.isEmpty) {
+                              if (!surveyController.isSnackbarShown.value) {
+                                surveyController.isSnackbarShown.value = true;
                                 Get.snackbar(
                                   currentLanguage == 'en' ? 'Error' : 'त्रुटि',
-                                  currentLanguage == 'en'
-                                      ? 'An unexpected error occurred: ${e.toString()}'
-                                      : 'एक अप्रत्याशित त्रुटि हुई: ${e.toString()}'
+                                  currentLanguage == 'en' ? 'Please enter an answer' : 'कृपया उत्तर दर्ज करें'
                                 );
                               }
                               return '';
                             }
-                          },
+
+                            // Validate shop vs warehouse inventory
+                            if (question['label'] == "Total_Inventory_Value") {
+                              int shopInventoryIndex = surveyController.questions.indexWhere((q) => q['label'] == "Shop_Inventory_Value");
+                              int warehouseInventoryIndex = surveyController.questions.indexWhere((q) => q['label'] == "Warehouse_Inventory_Value");
+                              
+                              if (shopInventoryIndex >= 0 && warehouseInventoryIndex >= 0 && 
+                                  shopInventoryIndex < answerControllers.length && warehouseInventoryIndex < answerControllers.length) {
+                                
+                                double shopValue = double.tryParse(answerControllers[shopInventoryIndex].text) ?? 0.0;
+                                double warehouseValue = double.tryParse(answerControllers[warehouseInventoryIndex].text) ?? 0.0;
+                                double totalValue = double.tryParse(value) ?? 0.0;
+                                
+                                if (totalValue != shopValue + warehouseValue) {
+                                  return currentLanguage == 'en'
+                                      ? 'Total must equal shop + warehouse inventory'
+                                      : 'कुल दुकान + गोदाम इन्वेंटरी के बराबर होना चाहिए';
+                                }
+                              }
+                            }
+                            
+                            // Validate net margin is between 0-100%
+                            if (question['label'] == "Net_Margin_Percentage") {
+                              double netMargin = double.tryParse(value) ?? 0.0;
+                              if (netMargin < 0 || netMargin > 100) {
+                                return currentLanguage == 'en'
+                                    ? 'Percentage must be between 0 and 100'
+                                    : 'प्रतिशत 0 और 100 के बीच होना चाहिए';
+                              }
+                            }
+                            
+                            return null;
+                          } catch (e) {
+                            if (!surveyController.isSnackbarShown.value) {
+                              surveyController.isSnackbarShown.value = true;
+                              Get.snackbar(
+                                currentLanguage == 'en' ? 'Error' : 'त्रुटि',
+                                currentLanguage == 'en'
+                                    ? 'An unexpected error occurred: ${e.toString()}'
+                                    : 'एक अप्रत्याशित त्रुटि हुई: ${e.toString()}'
+                              );
+                            }
+                            return '';
+                          }
+                        },
                         onChanged: (value) {
                           setState(() {
-                            _isSaved = false; // Reset the save flag on any edit
+                            _isSaved = false;
+                            _calculateTotalInventory();
                           });
                         },
                       ),
@@ -296,16 +321,8 @@ class _BusinessFinancialCogsScreenState extends State<BusinessFinancialCogsScree
         padding: const EdgeInsets.all(16.0),
         child: ElevatedButton(
           onPressed: () async {
+            surveyController.isSnackbarShown.value = false;
             if (_formKey.currentState?.validate() ?? false) {
-              surveyController.isCOGSScreenSnackbarShown.value = false;
-              if (_isSaved) {
-                Get.snackbar(
-                  currentLanguage == 'en' ? 'Info' : 'जानकारी',
-                  currentLanguage == 'en' ? 'Data has already been saved.' : 'डेटा पहले से ही सहेजा जा चुका है।'
-                );
-                return;
-              }
-
               bool isConnected = await isConnectedToInternet();
 
               List<Map<String, dynamic>> responses = [];
@@ -315,13 +332,21 @@ class _BusinessFinancialCogsScreenState extends State<BusinessFinancialCogsScree
 
                 if (answer.isNotEmpty) {
                   responses.add({
-                    // 'question': question['text'][currentLanguage] ?? question['text'],
                     'question': question['text']['en'],
-                     'answer': answer,
+                    'answer': answer,
                   });
-                  accessResponses.checkAndInsertValues({
-                    question['label'] : double.parse(answer),
-                  });
+                  
+                  // Only add numeric values to accessResponses
+                  if (question['keyboardType'] == 'number') {
+                    try {
+                      double numericValue = double.parse(answer);
+                      accessResponses.checkAndInsertValues({
+                        question['label']: numericValue,
+                      });
+                    } catch (e) {
+                      print("Could not parse numeric value for ${question['label']}: $e");
+                    }
+                  }
                 }
               }
 
@@ -340,7 +365,7 @@ class _BusinessFinancialCogsScreenState extends State<BusinessFinancialCogsScree
                   }
 
                   setState(() {
-                    _isSaved = true; // Set the flag after saving
+                    _isSaved = true;
                   });
 
                   Get.snackbar(
@@ -358,7 +383,6 @@ class _BusinessFinancialCogsScreenState extends State<BusinessFinancialCogsScree
                   );
                 }
               } else {
-                // Save responses in cache if offline
                 UserCacheService().saveSurveyResponse(widget.userId, responses);
                 setState(() {
                   _isSaved = true;
@@ -371,15 +395,13 @@ class _BusinessFinancialCogsScreenState extends State<BusinessFinancialCogsScree
                 );
               }
 
-              print('global');
-              print(accessResponses.allAnswers);
               // Navigate to the next screen
-              Get.to(() => BusinessFinancialOperatingcost(
+              Get.to(() => BusinessFinancialPersonalcost(
                 userId: widget.userId,
                 initialLanguage: currentLanguage,
               ));
             } else {
-              if (!surveyController.isCOGSScreenSnackbarShown.value) {
+              if (!surveyController.isSnackbarShown.value) {
                 Get.snackbar(
                   currentLanguage == 'en' ? 'Error' : 'त्रुटि',
                   currentLanguage == 'en'
@@ -387,7 +409,6 @@ class _BusinessFinancialCogsScreenState extends State<BusinessFinancialCogsScree
                       : 'कृपया सभी प्रश्नों का उत्तर दें।'
                 );
               }
-
             }
           },
           child: Text(currentLanguage == 'en' ? 'Next' : 'अगला'),
@@ -395,4 +416,4 @@ class _BusinessFinancialCogsScreenState extends State<BusinessFinancialCogsScree
       ),
     );
   }
-}
+} 

@@ -8,6 +8,12 @@ import 'package:loan/screens/personal_details/personal_details_screen.dart';
 import 'package:loan/widgets/common_widgets.dart';
 import 'package:random_string/random_string.dart';
 import '../global_functions//checkConnectivity.dart';
+import 'package:loan/screens/business_financial/business_financial_screen.dart';
+import 'package:loan/screens/business_financial/business_financial_cogs_screen.dart';
+import 'package:loan/screens/business_financial/business_financial_operatingcost.dart';
+import 'package:loan/screens/business_financial/business_financial_shopinfo_screen.dart';
+import 'package:loan/screens/business_financial/business_financial_personalcost.dart';
+import 'package:loan/screens/application_submission/application_submission_screen.dart';
 
 class DetailScreen extends StatefulWidget {
   DetailScreen({super.key});
@@ -113,6 +119,10 @@ class _DetailScreenState extends State<DetailScreen> {
                         userId: id,
                         initialLanguage: currentLanguage,
                       ));
+                      //  Get.to(() => ApplicationSubmissionScreen(
+                      //   userId: id,
+                      //   initialLanguage: currentLanguage,
+                      // ));
                     }
                   },
                 ),

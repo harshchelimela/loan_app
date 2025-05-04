@@ -43,7 +43,7 @@ dependencies:
   random_string: any
   get_storage: ^2.1.1
   connectivity_plus: ^6.0.5
-  http: ^1.2.2
+  http: ^0.13.5
   syncfusion_flutter_gauges: ^27.1.53
   csv: ^6.0.0
   share_plus: ^10.1.4

@@ -8,6 +8,7 @@ import 'package:loan/global_functions/access_responses.dart';
 import 'package:loan/global_functions/checkConnectivity.dart';
 import 'package:loan/screens/business_financial/business_financial_cogs_screen.dart';
 import 'package:loan/screens/personal_details/personal_details_screen.dart';
+import 'package:loan/screens/business_loan/business_loan_screen.dart';
 
 
 
@@ -109,7 +110,7 @@ class _BusinessFinancialScreenState extends State<BusinessFinancialScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () async {
             // Handle back press and question fetching logic
-            Get.to(() => PersonalDetailsScreen(
+            Get.to(() => BusinessLoanScreen(
               userId: widget.userId,
               initialLanguage: currentLanguage,
             ));
@@ -212,12 +213,29 @@ class _BusinessFinancialScreenState extends State<BusinessFinancialScreen> {
                                 }
                                 return '';
                               }
-
-                              double monthlySales = double.tryParse(answerControllers[surveyController.questions.indexWhere((q) => q['label'] == "Monthly_Sales")].text) ?? 0.0;
-                              double weeklySales = double.tryParse(answerControllers[surveyController.questions.indexWhere((q) => q['label'] == "Weekly_Sales")].text) ?? 0.0;
-                              double dailySales = double.tryParse(answerControllers[surveyController.questions.indexWhere((q) => q['label'] == "Daily_Sales")].text) ?? 0.0;
-                              double peakSales = double.tryParse(answerControllers[surveyController.questions.indexWhere((q) => q['label'] == "Peak_Sales")].text) ?? 0.0;
-                              double annualSales = double.tryParse(answerControllers[surveyController.questions.indexWhere((q) => q['label'] == "Annual_Sales_1")].text) ?? 0.0;
+                              
+                              // Find index of fields, using -1 if not found (which we'll handle)
+                              int monthlyIndex = surveyController.questions.indexWhere((q) => q['label'] == "Average_Monthly_Sales");
+                              int weeklyIndex = surveyController.questions.indexWhere((q) => q['label'] == "Average_Weekly_Sales");
+                              int dailyIndex = surveyController.questions.indexWhere((q) => q['label'] == "Average_Daily_Sales");
+                              int peakDailyIndex = surveyController.questions.indexWhere((q) => q['label'] == "Peak_Season_Daily_Sales");
+                              int yearlyIndex = surveyController.questions.indexWhere((q) => q['label'] == "Last_Year_Total_Sales");
+                              
+                              // Safely get values - only if the index is valid
+                              double monthlySales = monthlyIndex >= 0 && monthlyIndex < answerControllers.length ? 
+                                  double.tryParse(answerControllers[monthlyIndex].text) ?? 0.0 : 0.0;
+                              
+                              double weeklySales = weeklyIndex >= 0 && weeklyIndex < answerControllers.length ? 
+                                  double.tryParse(answerControllers[weeklyIndex].text) ?? 0.0 : 0.0;
+                              
+                              double dailySales = dailyIndex >= 0 && dailyIndex < answerControllers.length ? 
+                                  double.tryParse(answerControllers[dailyIndex].text) ?? 0.0 : 0.0;
+                              
+                              double peakSales = peakDailyIndex >= 0 && peakDailyIndex < answerControllers.length ? 
+                                  double.tryParse(answerControllers[peakDailyIndex].text) ?? 0.0 : 0.0;
+                              
+                              double annualSales = yearlyIndex >= 0 && yearlyIndex < answerControllers.length ? 
+                                  double.tryParse(answerControllers[yearlyIndex].text) ?? 0.0 : 0.0;
 
                               String errorMessage = '';
 
@@ -235,28 +253,20 @@ class _BusinessFinancialScreenState extends State<BusinessFinancialScreen> {
                                     : "साप्ताहिक बिक्री दैनिक बिक्री से कम नहीं होनी चाहिए।";
                               } else if (peakSales < dailySales) {
                                 errorMessage = currentLanguage == 'en'
-                                    ? "Peak Monthly sales should not be less than Daily sales."
-                                    : "शिखर मासिक बिक्री दैनिक बिक्री से कम नहीं होनी चाहिए।";
-                              } else if (annualSales < weeklySales) {
+                                    ? "Peak daily sales should not be less than average daily sales."
+                                    : "शिखर दैनिक बिक्री औसत दैनिक बिक्री से कम नहीं होनी चाहिए।";
+                              } else if (annualSales < weeklySales * 52) {
                                 errorMessage = currentLanguage == 'en'
-                                    ? "Annual Sales should not be less than Weekly sales."
-                                    : "वार्षिक बिक्री साप्ताहिक बिक्री से कम नहीं होनी चाहिए।";
-                              } else if (annualSales < monthlySales) {
+                                    ? "Annual Sales should be at least 52 times the weekly sales."
+                                    : "वार्षिक बिक्री साप्ताहिक बिक्री का कम से कम 52 गुना होनी चाहिए।";
+                              } else if (annualSales < monthlySales * 12) {
                                 errorMessage = currentLanguage == 'en'
-                                    ? "Annual sales should not be less than Average Monthly sales."
-                                    : "वार्षिक बिक्री औसत मासिक बिक्री से कम नहीं होनी चाहिए।";
-                              } else if (annualSales < dailySales) {
+                                    ? "Annual sales should be at least 12 times the monthly sales."
+                                    : "वार्षिक बिक्री मासिक बिक्री का कम से कम 12 गुना होनी चाहिए।";
+                              } else if (annualSales < dailySales * 365) {
                                 errorMessage = currentLanguage == 'en'
-                                    ? "Annual sales should not be less than Daily sales."
-                                    : "वार्षिक बिक्री दैनिक बिक्री से कम नहीं होनी चाहिए।";
-                              } else if (annualSales < weeklySales) {
-                                errorMessage = currentLanguage == 'en'
-                                    ? "Annual sales should not be less than Weekly sales."
-                                    : "वार्षिक बिक्री साप्ताहिक बिक्री से कम नहीं होनी चाहिए।";
-                              } else if (annualSales < monthlySales) {
-                                errorMessage = currentLanguage == 'en'
-                                    ? "Annual sales should not be less than Monthly sales."
-                                    : "वार्षिक बिक्री मासिक बिक्री से कम नहीं होनी चाहिए।";
+                                    ? "Annual sales should be at least 365 times the daily sales."
+                                    : "वार्षिक बिक्री दैनिक बिक्री का कम से कम 365 गुना होनी चाहिए।";
                               }
 
                               if (errorMessage.isNotEmpty) {
@@ -308,7 +318,8 @@ class _BusinessFinancialScreenState extends State<BusinessFinancialScreen> {
 
                 if (answer.isNotEmpty) {
                   responses.add({
-                    'question': question['text'][currentLanguage] ?? question['text'],
+                    // 'question': question['text'][currentLanguage] ?? question['text'],
+                    'question': question['text']['en'],
                     'answer': answer,
                   });
                   accessResponses.checkAndInsertValues({
@@ -383,10 +394,16 @@ class _BusinessFinancialScreenState extends State<BusinessFinancialScreen> {
 
   double getValueFromField(String labelText) {
     final SurveyController surveyController = Get.find<SurveyController>();
+    
+    int index = surveyController.questions.indexWhere((q) => q['label'] == labelText);
+    if (index == -1 || index >= answerControllers.length) {
+      print("Field not found: $labelText");
+      return 0.0;
+    }
+    
+    double value = double.tryParse(answerControllers[index].text) ?? 0.0;
 
-    double value = double.tryParse(answerControllers[surveyController.questions.indexWhere((q) => q['label'] == labelText)].text) ?? 0.0;
-
-    print("Warehouse Value: $value");
+    print("Field value for $labelText: $value");
     return value;
   }
 }
